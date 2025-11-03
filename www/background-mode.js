@@ -489,15 +489,13 @@ exports._setActive = function(value)
 exports._pluginInitialize = function()
 {
     this._isAndroid = device.platform.match(/^android|amazon/i) !== null;
-    this.setDefaults({});
-
     if (device.platform == 'browser')
     {
+        this.setDefaults({});
         this.enable();
         this._isEnabled = true;
+        this._isActive = true;
     }
-
-    this._isActive  = this._isActive || device.platform == 'browser';
 };
 
 /**
