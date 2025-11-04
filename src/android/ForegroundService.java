@@ -22,11 +22,11 @@ import static android.os.PowerManager.PARTIAL_WAKE_LOCK;
 
 public class ForegroundService extends Service {
 
-    public static final int NOTIFICATION_ID = -574543954;
-    private static final String CHANNEL_ID = "cordova_background_mode_channel";
+    public static final int NOTIFICATION_ID = 101;
+    private static final String CHANNEL_ID = "cordova_adv_bg_mode_channel_v1";
     private static final String NOTIFICATION_TITLE = "App is running in background";
     private static final String NOTIFICATION_TEXT = "Doing heavy tasks.";
-    private static final String NOTIFICATION_ICON = "icon";
+    private static final String NOTIFICATION_ICON = "ic_launcher";
 
     private final IBinder binder = new ForegroundBinder();
     private PowerManager.WakeLock wakeLock;
@@ -102,10 +102,10 @@ public class ForegroundService extends Service {
                 startForeground(NOTIFICATION_ID, notification, fgsTypes);
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 // Android 10–11
-                startForeground(NOTIFICATION_ID, makeNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
             } else {
                 // Older Android
-                startForeground(NOTIFICATION_ID, makeNotification());
+                startForeground(NOTIFICATION_ID, notification);
             }
         }
 
@@ -133,6 +133,7 @@ public class ForegroundService extends Service {
     private Notification makeNotification(JSONObject settings) {
         String title = settings.optString("title", NOTIFICATION_TITLE);
         String text = settings.optString("text", NOTIFICATION_TEXT);
+        String icon = settings.optString("icon", NOTIFICATION_ICON);
         boolean bigText = settings.optBoolean("bigText", false);
 
         Context context = getApplicationContext();
@@ -151,7 +152,7 @@ public class ForegroundService extends Service {
             .setContentTitle(title)
             .setContentText(text)
             .setOngoing(true)
-            .setSmallIcon(getIconResId(settings));
+            .setSmallIcon(getIconResId(context, icon));
 
         if (settings.optBoolean("hidden", true)) {
             notification.setPriority(Notification.PRIORITY_MIN);
@@ -172,9 +173,7 @@ public class ForegroundService extends Service {
                 flags |= PendingIntent.FLAG_IMMUTABLE;
             }
             
-            PendingIntent contentIntent = PendingIntent.getActivity(
-                context, NOTIFICATION_ID, intent, flags);
-
+            PendingIntent contentIntent = PendingIntent.getActivity(context, NOTIFICATION_ID, intent, flags);
             notification.setContentIntent(contentIntent);
         }
 
@@ -193,26 +192,46 @@ public class ForegroundService extends Service {
         getNotificationManager().notify(NOTIFICATION_ID, notification);
     }
 
-    private int getIconResId(JSONObject settings) {
-        String icon = settings.optString("icon", NOTIFICATION_ICON);
-        int resId = getIconResId(icon, "mipmap");
-
-        if (resId == 0) {
-            resId = getIconResId(icon, "drawable");
+    /**
+     * Gets the resource ID for a small notification icon, with fallbacks.
+     *
+     * @param context     The application context.
+     * @param iconName    The name of the icon you want (e.g., "power").
+     * @return A valid drawable resource ID (int).
+     */
+    private int getIconResId(Context context, String iconName) {
+        Resources res = context.getResources();
+        String pkgName = context.getPackageName();
+        
+        // 1. Try to find the named icon (e.g., "ic_notify_power")
+        int iconId = findIconResourceId(res, pkgName, iconName);
+        // 2. If not found, fall back to the default notification (app) icon
+        if (iconId == 0) {
+            iconId = findIconResourceId(res, pkgName, NOTIFICATION_ICON);
         }
-
-        return resId;
+        // 4. As a final, last-resort safety net, use a built-in system icon.
+        //    This prevents setSmallIcon(0), which causes the "stop" icon.
+        if (iconId == 0) {
+            iconId = android.R.drawable.ic_dialog_info;
+        }
+        return iconId;
     }
 
-    private int getIconResId(String icon, String type) {
-        Resources res = getResources();
-        String pkgName = getPackageName();
-        int resId = res.getIdentifier(icon, type, pkgName);
-
-        if (resId == 0) {
-            resId = res.getIdentifier("icon", type, pkgName);
+    /**
+     * Helper method to search for an icon resource in both mipmap and drawable.
+     * The plugin code you shared checks mipmap first, so we do the same.
+     */
+    private int findIconResourceId(Resources res, String pkgName, String iconName) {
+        if (iconName == null || iconName.isEmpty()) {
+            return 0;
         }
-
+        
+        // 1. Check mipmap folders
+        int resId = res.getIdentifier(iconName, "mipmap", pkgName);        
+        // 2. If not in mipmap, check drawable folders
+        if (resId == 0) {
+            resId = res.getIdentifier(iconName, "drawable", pkgName);
+        }        
         return resId;
     }
 
