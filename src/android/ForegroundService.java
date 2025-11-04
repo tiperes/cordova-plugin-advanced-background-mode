@@ -154,17 +154,13 @@ public class ForegroundService extends Service {
             .setOngoing(true)
             .setSmallIcon(getIconResId(context, icon));
 
-        if (settings.optBoolean("hidden", true)) {
-            notification.setPriority(Notification.PRIORITY_MIN);
-        }
-
         if (bigText || text.contains("\n")) {
             notification.setStyle(new Notification.BigTextStyle().bigText(text));
         }
 
         setColor(notification, settings);
 
-        if (intent != null && settings.optBoolean("resume")) {
+        if (intent != null && settings.optBoolean("resume", true)) {
             intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
             
             // PendingIntent flags for Android 12+
