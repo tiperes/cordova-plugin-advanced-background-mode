@@ -109,13 +109,6 @@
 
         <!-- Framework version preferences for MABS -->
         <framework src="src/android/build.gradle" custom="true" type="gradleReference" />
-        
-        <!-- Notification icons -->
-        <resource-file src="src/android/res/drawable/power.xml" target="res/drawable/power.xml"/>
-        <resource-file src="src/android/res/drawable-hdpi/power.png" target="res/drawable-hdpi/power.png"/>
-        <resource-file src="src/android/res/drawable-mdpi/power.png" target="res/drawable-mdpi/power.png"/>
-        <resource-file src="src/android/res/drawable-xhdpi/power.png" target="res/drawable-xhdpi/power.png"/>
-        <resource-file src="src/android/res/drawable-xxhdpi/power.png" target="res/drawable-xxhdpi/power.png"/>
 
         <source-file
             src="src/android/BackgroundMode.java"
