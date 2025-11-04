@@ -243,7 +243,6 @@ cordova.plugins.backgroundMode.setDefaults({
     icon: 'ic_launcher', // Name of icon in res/drawable
     color: 'F14F4D', // Hex color (without #)
     resume: true, // Tap notification to resume app
-    hidden: false, // Show on lockscreen
     bigText: false, // Use big text style
     silent: false // Don't show notification (not recommended)
 });
@@ -419,7 +418,7 @@ The plugin automatically handles interruptions (phone calls, etc.) and restarts 
 | `icon` | string | 'icon' | Icon name (from res/drawable) |
 | `color` | string | undefined | Notification color (hex, no #) |
 | `resume` | boolean | true | Tap to resume app |
-| `hidden` | boolean | true | Hide from lockscreen |
+| `silent` | boolean | false | Don't show notification (not recommended) |
 | `bigText` | boolean | false | Use big text style |
 | `silent` | boolean | false | Don't show notification |
 
