@@ -16,6 +16,12 @@ A Cordova plugin optimized for **OutSystems MABS 11/12** that enables infinite b
 - ✅ **Battery Optimization** - Tools to request battery optimization exemptions
 - ✅ **Customizable Notifications** - Full control over background service notifications
 
+## 🌟 **Android 14+ Support** breaking changes
+
+- ❌ **Removed Silent configuration** - This configuration is no longer supported.
+- ⚠️ **Background notification always visisble** - After enabling background mode, the notification will be initialized and displayed the first time the app goes into the background. After that, the notification remains, even when the app returns to the foreground. The only way to hide it is to disable background mode.
+- ⚠️ **Avoid multiple enable/disable toggles** - Devices running Android 13+ may terminate the service aggressively. During the application's lifecycle, you should not reenable the background mode after it has been toogled from enabled to disabled. As previsouly, it starts disabled and you need to explicitly enable it.
+
 ## 📋 Table of Contents
 
 - [What This Plugin Does](#what-this-plugin-does)
@@ -68,7 +74,7 @@ This plugin prevents your Cordova/OutSystems app from being paused when it enter
 
 | Platform | Minimum Version | Status |
 |----------|----------------|---------|
-| Android | API 23 (Android 6.0) | ✅ Fully Supported |
+| Android | API 23+ (Android 6.0+) | ✅ Fully Supported |
 | iOS | iOS 13.0+ | ✅ Fully Supported |
 | Browser | All versions | ✅ Mock Implementation |
 
@@ -228,7 +234,7 @@ cordova.plugins.backgroundMode.on('failure', function(errorMsg) {
 });
 
 // Remove event listener
-cordova.plugins.backgroundMode.un('activate', callbackFunction);
+cordova.plugins.backgroundMode.off('activate', callbackFunction);
 ```
 
 ### Configure Notifications
@@ -244,7 +250,6 @@ cordova.plugins.backgroundMode.setDefaults({
     color: 'F14F4D', // Hex color (without #)
     resume: true, // Tap notification to resume app
     bigText: false, // Use big text style
-    silent: false // Don't show notification (not recommended)
 });
 
 // Update notification while running
@@ -252,10 +257,6 @@ cordova.plugins.backgroundMode.configure({
     title: 'Updated Title',
     text: 'New status message'
 });
-
-// Silent mode (no notification) - NOT RECOMMENDED
-// Android may kill your app without notification!
-cordova.plugins.backgroundMode.setDefaults({ silent: true });
 ```
 
 ## 📱 Android-Specific Features
@@ -375,16 +376,16 @@ The plugin automatically handles interruptions (phone calls, etc.) and restarts 
 
 | Method | Parameters | Returns | Description |
 |--------|-----------|---------|-------------|
-| `enable()` | - | void | Enable background mode |
-| `disable()` | - | void | Disable background mode |
-| `setEnabled(enable)` | boolean | void | Enable or disable |
+| `enable(success, error)` | - | void | Enable background mode |
+| `disable(success, error)` | - | void | Disable background mode |
+| `setEnabled(enable, success, error)` | boolean | void | Enable or disable |
 | `requestPermissions(success, error)` | callbacks | void | Request Android 13+ permissions |
 | `isEnabled()` | - | boolean | Check if enabled |
 | `isActive()` | - | boolean | Check if app is in background |
 | `configure(options)` | object | void | Update notification |
 | `setDefaults(options)` | object | void | Set default notification |
 | `on(event, callback, scope)` | string, function, object | void | Add event listener |
-| `un(event, callback)` | string, function | void | Remove event listener |
+| `off(event, callback)` | string, function | void | Remove event listener |
 
 **Android Only:**
 - `moveToBackground()` - Minimize app
@@ -418,9 +419,7 @@ The plugin automatically handles interruptions (phone calls, etc.) and restarts 
 | `icon` | string | 'icon' | Icon name (from res/drawable) |
 | `color` | string | undefined | Notification color (hex, no #) |
 | `resume` | boolean | true | Tap to resume app |
-| `silent` | boolean | false | Don't show notification (not recommended) |
 | `bigText` | boolean | false | Use big text style |
-| `silent` | boolean | false | Don't show notification |
 
 ## 🔧 Troubleshooting
 
@@ -428,7 +427,6 @@ The plugin automatically handles interruptions (phone calls, etc.) and restarts 
 
 **App is killed in background**
 - Request battery optimization exemption: `disableBatteryOptimizations()`
-- Don't use `silent: true` - Android needs the notification
 - Check manufacturer-specific settings: `openAppStartSettings()`
 
 **Notification not showing on Android 13+**
