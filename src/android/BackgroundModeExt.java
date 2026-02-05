@@ -126,7 +126,11 @@ public class BackgroundModeExt extends CordovaPlugin {
         app.startActivity(intent);
     }
 
+    private boolean webViewOptimizationsDisabled = false;
+
     private void disableWebViewOptimizations() {
+        if (webViewOptimizationsDisabled) return;
+        webViewOptimizationsDisabled = true;
         Thread thread = new Thread() {
             public void run() {
                 try {
