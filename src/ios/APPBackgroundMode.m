@@ -272,19 +272,8 @@ NSString* const kAPPBackgroundEventDeactivate = @"deactivate";
  */
 - (void) fireEvent:(NSString*)event
 {
-    NSString* active =
-    [event isEqualToString:kAPPBackgroundEventActivate] ? @"true" : @"false";
-
-    NSString* flag = [NSString stringWithFormat:@"%@._isActive=%@;",
-                      kAPPBackgroundJsNamespace, active];
-
-    NSString* depFn = [NSString stringWithFormat:@"%@.on('%@');",
-                       kAPPBackgroundJsNamespace, event];
-
-    NSString* fn = [NSString stringWithFormat:@"%@.fireEvent('%@');",
+    NSString* js = [NSString stringWithFormat:@"%@.fireEvent('%@');",
                     kAPPBackgroundJsNamespace, event];
-
-    NSString* js = [NSString stringWithFormat:@"%@%@%@", flag, depFn, fn];
 
     [self.commandDelegate evalJs:js];
 }
