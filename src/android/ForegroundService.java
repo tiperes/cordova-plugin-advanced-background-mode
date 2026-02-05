@@ -11,6 +11,7 @@ import android.content.pm.ServiceInfo;
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.os.Build;
+import android.os.IBinder;
 
 import androidx.core.app.NotificationCompat;
 
@@ -26,6 +27,11 @@ public class ForegroundService extends Service {
     private static final String NOTIFICATION_TITLE = "App is running in background";
     private static final String NOTIFICATION_TEXT = "Doing heavy tasks.";
     private static final String NOTIFICATION_ICON = "ic_launcher";
+
+    @Override
+    public IBinder onBind (Intent intent) {
+        return binder;
+    }
 
     @Override
     public void onCreate() {
