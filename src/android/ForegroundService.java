@@ -30,7 +30,8 @@ public class ForegroundService extends Service {
 
     @Override
     public IBinder onBind (Intent intent) {
-        return binder;
+        // This is a started-only service, not bindable
+        return null;
     }
 
     @Override
