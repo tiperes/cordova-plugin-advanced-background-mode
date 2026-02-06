@@ -58,7 +58,7 @@ public class BackgroundMode extends CordovaPlugin {
     public void onDestroy()
     {
         stopForeground();
-        // Older then Android 8.0
+        // Older then Android 8
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             android.os.Process.killProcess(android.os.Process.myPid());
         }
@@ -181,8 +181,8 @@ public class BackgroundMode extends CordovaPlugin {
      */
     private void disableMode()
     {
-		isEnabled = false;		
-        stopForeground();
+		isEnabled = false;
+		stopForeground();
     }
 
     /**
@@ -201,7 +201,7 @@ public class BackgroundMode extends CordovaPlugin {
     {
         try {
 			inBackground = true;
-            startForeground();
+			startForeground();
         } finally {
             clearKeyguardFlags(cordova.getActivity());
         }
@@ -240,11 +240,22 @@ public class BackgroundMode extends CordovaPlugin {
      */
     private void startForeground()
     {
-		if (!(isEnabled && inBackground)) return;
-
-        if (isForegroundStarted) return;
+		if (isForegroundStarted) return;
 		
-		try {
+		// Android 12+:
+		// - Start once when enabled
+		// - Never stop on pause/resume
+        //if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {			
+			if (!isEnabled) return;
+		//}
+		// Android ≤11:
+	    // - MAY start/stop on background transitions
+	    // - BUT do NOT rely on this for recovery logic
+		//else {
+		//	if (!inBackground && !isEnabled) return;
+		//}
+
+        try {
 			Activity context = cordova.getActivity();
 			Intent intent    = new Intent(context, ForegroundService.class);			
 			// Android 14+
@@ -267,9 +278,20 @@ public class BackgroundMode extends CordovaPlugin {
      */
     private void stopForeground()
     {
-        if (isEnabled && inBackground) return;
-        
-        if (!isForegroundStarted) return;
+		if (!isForegroundStarted) return;
+		
+		// Android 12+:
+		// - Start once when enabled
+		// - Never stop on pause/resume
+        //if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+			if (isEnabled) return;
+		//}
+		// Android ≤11:
+	    // - MAY start/stop on background transitions
+	    // - BUT do NOT rely on this for recovery logic
+		//else {
+		//	if (inBackground || isEnabled) return;
+		//}
 
         Activity context = cordova.getActivity();
         Intent intent    = new Intent(context, ForegroundService.class);
