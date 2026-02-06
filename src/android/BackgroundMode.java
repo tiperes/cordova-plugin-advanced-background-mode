@@ -100,14 +100,14 @@ public class BackgroundMode extends CordovaPlugin {
     }
 	
 	/**
-	 * Request notification permission for Android 13+.
-	 * Uses Cordova helpers so it works without touching MainActivity.
+	 * Request notification permission for Android 13+
 	 */
 	private void requestNotificationPermission(CallbackContext callback)
 	{
 	    // Android 13+ requires POST_NOTIFICATIONS permission
 	    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-	        cordova.hasPermission(Manifest.permission.POST_NOTIFICATIONS)) {
+	        ContextCompat.checkSelfPermission(cordova.getActivity(),
+                Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
 	        callback.success();
 	        return;
 	    }
@@ -120,11 +120,11 @@ public class BackgroundMode extends CordovaPlugin {
 	    result.setKeepCallback(true);
 	    callback.sendPluginResult(result);
 	
-	    // Use Cordova's requestPermissions
-		cordova.requestPermissions(
-			this,
-			NOTIFICATION_PERMISSION_REQUEST_CODE,
-			new String[]{Manifest.permission.POST_NOTIFICATIONS}
+	    // Request permissions
+		ActivityCompat.requestPermissions(
+			activity,
+			new String[]{Manifest.permission.POST_NOTIFICATIONS},
+			NOTIFICATION_PERMISSION_REQUEST_CODE
 		);
 	}
 	
@@ -152,21 +152,21 @@ public class BackgroundMode extends CordovaPlugin {
 	    if (isEnablePending && granted) {
 	        isEnablePending = false;
 			
-			// Permission granted or not needed → start foreground service
+			// Permission granted → start foreground service
 		    isEnabled = true;
 		    startForeground();
 	    }
 	}
 
 	/**
-	 * Enable background mode.
-	 * Checks notification permission and requests it if needed.
+	 * Enable background mode
 	 */
 	private void enableMode(CallbackContext callback)
 	{
 	    // Android 13+ check
 	    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-	        !cordova.hasPermission(Manifest.permission.POST_NOTIFICATIONS)) {
+	        ContextCompat.checkSelfPermission(cordova.getActivity(),
+                Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
 	        
 	        // Will enable after permission granted
 	        isEnablePending = true;
@@ -176,7 +176,7 @@ public class BackgroundMode extends CordovaPlugin {
 	        return;
 	    }
 	
-	    // Permission granted or not needed → start foreground service
+	    // Permission already granted or not needed → start foreground service
 	    isEnabled = true;
 	    startForeground();
 		
