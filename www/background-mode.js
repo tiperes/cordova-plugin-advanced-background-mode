@@ -173,8 +173,8 @@ exports.enable = function(success, error)
     }
 
     var onSuccess = function() {
-        this._isEnabled = true;
-        this.fireEvent('enable');
+        exports._isEnabled = true;
+        exports.fireEvent('enable');
         success();
     };
     var onError = function(errorMsg) {
@@ -201,8 +201,8 @@ exports.disable = function(success, error)
     }
 
     var onSuccess = function() {
-        this._isEnabled = false;
-        this.fireEvent('disable');
+        exports._isEnabled = false;
+        exports.fireEvent('disable');
         success();
     };
     var onError = function(errorMsg) {
@@ -338,13 +338,13 @@ exports.overrideBackButton = function()
  *
  * @return [ Void ]
  */
-exports.isScreenOff = function (fn)
+exports.isScreenOff = function (success)
 {
     if (this._isAndroid) {
         cordova.exec(fn, null, 'BackgroundModeExt', 'dimmed', []);
     }
     else {
-        fn(undefined);
+        success(undefined);
     }
 };
 
