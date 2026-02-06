@@ -114,6 +114,11 @@ public class BackgroundMode extends CordovaPlugin {
 	
 	    // Store callback for later
 	    permissionCallback = callback;
+
+		// Tell Cordova: result will come later
+	    PluginResult result = new PluginResult(PluginResult.Status.NO_RESULT);
+	    result.setKeepCallback(true);
+	    callback.sendPluginResult(result);
 	
 	    // Use Cordova's requestPermissions
 		cordova.requestPermissions(
