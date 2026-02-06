@@ -126,7 +126,7 @@ public class BackgroundModeExt extends CordovaPlugin {
         app.startActivity(intent);
     }
 
-    private void reassertWebViewVisibility() {
+    private void disableWebViewOptimizations() {
         Activity app = getApp();
         if (app == null || webView == null) return;
     
