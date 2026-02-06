@@ -19,8 +19,8 @@ A Cordova plugin optimized for **OutSystems MABS 11/12** that enables infinite b
 ## 🌟 **Android 14+ Support** breaking changes
 
 - ❌ **Removed Silent configuration** - This configuration is no longer supported.
-- ⚠️ **Background notification always visisble** - After enabling background mode, the notification will be initialized and displayed the first time the app goes into the background. After that, the notification remains, even when the app returns to the foreground. The only way to hide it is to disable background mode.
-- ⚠️ **Avoid multiple enable/disable toggles** - Devices running Android 13+ may terminate the service aggressively. During the application's lifecycle, you should not reenable the background mode after it has been toogled from enabled to disabled. As previsouly, it starts disabled and you need to explicitly enable it.
+- ⚠️ **Background notification always visisble** - When enabling background mode, the foreground service and its notification will be initialized and displayed. The service and its notification will remain active being the app in foreground or background. The only way to hide it is to disable background mode.
+- ⚠️ **Avoid multiple enable/disable toggles** - Devices running Android 12+ may terminate the service aggressively. During the application's lifecycle, you should not reenable the background mode after it has been toogled from enabled to disabled. As previsouly, it starts disabled and you need to explicitly enable it.
 
 ## 📋 Table of Contents
 
