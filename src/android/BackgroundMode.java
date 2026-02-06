@@ -107,7 +107,7 @@ public class BackgroundMode extends CordovaPlugin {
 	    // Android 13+ requires POST_NOTIFICATIONS permission
 	    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
 	        ContextCompat.checkSelfPermission(cordova.getActivity(),
-                Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
 	        callback.success();
 	        return;
 	    }
