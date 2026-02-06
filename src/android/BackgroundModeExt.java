@@ -126,41 +126,33 @@ public class BackgroundModeExt extends CordovaPlugin {
         app.startActivity(intent);
     }
 
-    private boolean webViewOptimizationsDisabled = false;
-
-    private void disableWebViewOptimizations() {
-        if (webViewOptimizationsDisabled) return;
-        webViewOptimizationsDisabled = true;
-        Thread thread = new Thread() {
-            public void run() {
-                try {
-                    Thread.sleep(1000);
-                    Activity app = getApp();
-                    if (app == null) return;
-
-                    app.runOnUiThread(() -> {
-                        try {
-                            View view = webView.getEngine().getView();
-                            if (view != null) {
-                                try {
-                                    Class.forName("org.crosswalk.engine.XWalkCordovaView")
-                                        .getMethod("onShow")
-                                        .invoke(view);
-                                } catch (Exception e) {
-                                    view.dispatchWindowVisibilityChanged(View.VISIBLE);
-                                }
-                            }
-                        } catch (Exception e) {
-                            // Silently fail - webview might not be ready
-                        }
-                    });
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
+    private void reassertWebViewVisibility() {
+        Activity app = getApp();
+        if (app == null || webView == null) return;
+    
+        app.runOnUiThread(() -> {
+            View view;
+            try {
+                view = webView.getEngine().getView();
+            } catch (Exception e) {
+                return;
             }
-        };
-
-        thread.start();
+    
+            if (view == null) return;
+    
+            // Ensure view is attached and visible
+            view.post(() -> {
+                if (!view.isAttachedToWindow()) return;
+    
+                try {
+                    Class.forName("org.crosswalk.engine.XWalkCordovaView")
+                        .getMethod("onShow")
+                        .invoke(view);
+                } catch (Exception ignore) {
+                    view.dispatchWindowVisibilityChanged(View.VISIBLE);
+                }
+            });
+        });
     }
 
     @SuppressLint("BatteryLife")
