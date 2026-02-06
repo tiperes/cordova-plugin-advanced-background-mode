@@ -61,6 +61,12 @@ public class ForegroundService extends Service {
     }
 
     @Override
+    public void onDestroy() {
+        stopForeground(true);
+        super.onDestroy();
+    }
+
+    @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && ACTION_NOTIFICATION.equals(intent.getAction())) {
             try {
