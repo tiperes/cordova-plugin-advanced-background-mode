@@ -41,17 +41,20 @@ public class ForegroundService extends Service {
         ensureNotificationChannel();
         Notification notification = makeNotification(BackgroundMode.getDefaultSettings());
 
+        // Android 12+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             int fgsTypes =
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC |
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING;
             startForeground(NOTIFICATION_ID, notification, fgsTypes);
+        // Android 10+
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
                     NOTIFICATION_ID,
                     notification,
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
             );
+        // Older than Android 10
         } else {
             startForeground(NOTIFICATION_ID, notification);
         }
