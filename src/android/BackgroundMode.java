@@ -52,7 +52,7 @@ public class BackgroundMode extends CordovaPlugin {
     private CallbackContext permissionCallback;
 
     // Flag indicates if the foreground services has been started
-    private boolean isForegroundStarted = true;
+    private boolean isForegroundStarted = false;
     
     @Override
     public void onDestroy()
