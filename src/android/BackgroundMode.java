@@ -27,6 +27,9 @@ public class BackgroundMode extends CordovaPlugin {
     // Plugin namespace
     private static final String JS_NAMESPACE = "cordova.plugins.backgroundMode";
 
+	// Permission request string. This constant exists only from Android 13 (API 33)
+	private static final String POST_NOTIFICATIONS = "android.permission.POST_NOTIFICATIONS";
+
     // Permission request codes
     private static final int NOTIFICATION_PERMISSION_REQUEST_CODE = 1001;
 
@@ -39,12 +42,6 @@ public class BackgroundMode extends CordovaPlugin {
     public static JSONObject getDefaultSettings () {
         return defaultSettings;
     }
-    
-	// Flag indicates if the app is in background or foreground
-    private boolean inBackground = false;
-	
-	// Flag indicates if the plugin is enabled or disabled
-    private boolean isEnabled = false;
 
     // Pending enable request
     private boolean isEnablePending = false;
@@ -106,28 +103,37 @@ public class BackgroundMode extends CordovaPlugin {
 	{
 		Activity activity = cordova.getActivity();
 		
-	    // Android 13+ requires POST_NOTIFICATIONS permission
-	    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-	        ContextCompat.checkSelfPermission(activity,
-                Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+	    // Android < 13 → permission not required
+	    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
 	        callback.success();
-	        return;
 	    }
+	    // Already granted → immediate success
+	    else if (ContextCompat.checkSelfPermission(activity, POST_NOTIFICATIONS)
+	            == PackageManager.PERMISSION_GRANTED) {
+	        // If there was a pending enable request, start foreground service
+	        if (isEnablePending) {
+	            isEnablePending = false;
+	            startForeground();
+	        }
+			callback.success();
+	    }
+		// Not Granted - Request Permissions
+		else {
+		    // Store callback for later
+		    permissionCallback = callback;
 	
-	    // Store callback for later
-	    permissionCallback = callback;
-
-		// Tell Cordova: result will come later
-	    PluginResult result = new PluginResult(PluginResult.Status.NO_RESULT);
-	    result.setKeepCallback(true);
-	    callback.sendPluginResult(result);
-	
-	    // Request permissions
-		ActivityCompat.requestPermissions(
-			activity,
-			new String[] { Manifest.permission.POST_NOTIFICATIONS },
-			NOTIFICATION_PERMISSION_REQUEST_CODE
-		);
+			// Tell Cordova: result will come later
+		    PluginResult result = new PluginResult(PluginResult.Status.NO_RESULT);
+		    result.setKeepCallback(true);
+		    callback.sendPluginResult(result);
+		
+		    // Request permissions
+			ActivityCompat.requestPermissions(
+				activity,
+				new String[] { POST_NOTIFICATIONS },
+				NOTIFICATION_PERMISSION_REQUEST_CODE
+			);
+		}
 	}
 	
     /**
@@ -136,28 +142,28 @@ public class BackgroundMode extends CordovaPlugin {
     @Override
 	public void onRequestPermissionResult(int requestCode, String[] permissions, int[] grantResults)
 	{
-		// ignore unexpected requests
-	    if (requestCode != NOTIFICATION_PERMISSION_REQUEST_CODE &&
-			permissionCallback != null) return;
+		// Not our request or callback already cleared
+	    if (requestCode != NOTIFICATION_PERMISSION_REQUEST_CODE || permissionCallback == null) return;
 	
-	    boolean granted = grantResults.length > 0 && 
-						  grantResults[0] == PackageManager.PERMISSION_GRANTED;
-	
-	    if (granted) {
+	    // Granted
+	    if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+			// If there was a pending enable request, start foreground service
+		    if (isEnablePending) {
+		        isEnablePending = false;
+			    startForeground();
+		    }			
 			permissionCallback.success();
+		// Denied
 		} else {
-			permissionCallback.error("Notification permission denied");
+	        if (!ActivityCompat.shouldShowRequestPermissionRationale(
+	                cordova.getActivity(), POST_NOTIFICATIONS)) {
+	            permissionCallback.error("Notification permission permanently denied. Please enable it in app settings.");
+	        } else {
+	            permissionCallback.error("Notification permission denied");
+	        }
 		}
+		// Clear callback
 		permissionCallback = null;
-	
-	    // If there was a pending enable request
-	    if (isEnablePending && granted) {
-	        isEnablePending = false;
-			
-			// Permission granted → start foreground service
-		    isEnabled = true;
-		    startForeground();
-	    }
 	}
 
 	/**
@@ -168,7 +174,7 @@ public class BackgroundMode extends CordovaPlugin {
 	    // Android 13+ check
 	    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
 	        ContextCompat.checkSelfPermission(cordova.getActivity(),
-                Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
 	        
 	        // Will enable after permission granted
 	        isEnablePending = true;
@@ -177,11 +183,9 @@ public class BackgroundMode extends CordovaPlugin {
 	        requestNotificationPermission(callback);
 	        return;
 	    }
-	
-	    // Permission already granted or not needed → start foreground service
-	    isEnabled = true;
+		// Permission already granted or not needed → start foreground service
 	    startForeground();
-		
+
 		callback.success();
 	}
 
@@ -190,7 +194,6 @@ public class BackgroundMode extends CordovaPlugin {
      */
     private void disableMode()
     {
-		isEnabled = false;
 		stopForeground();
     }
 
@@ -198,7 +201,8 @@ public class BackgroundMode extends CordovaPlugin {
      * Called when the activity is no longer visible to the user.
      */
     @Override
-    public void onStop () {
+    public void onStop ()
+	{
         clearKeyguardFlags(cordova.getActivity());
     }
 
@@ -208,12 +212,7 @@ public class BackgroundMode extends CordovaPlugin {
     @Override
     public void onPause(boolean multitasking)
     {
-        try {
-			inBackground = true;
-			startForeground();
-        } finally {
-            clearKeyguardFlags(cordova.getActivity());
-        }
+		clearKeyguardFlags(cordova.getActivity());
     }
 
     /**
@@ -222,8 +221,6 @@ public class BackgroundMode extends CordovaPlugin {
     @Override
     public void onResume (boolean multitasking)
     {
-		inBackground = false;
-        stopForeground();
     }
 
     /**
@@ -250,19 +247,6 @@ public class BackgroundMode extends CordovaPlugin {
     private void startForeground()
     {
 		if (isForegroundStarted) return;
-		
-		// Android 12+:
-		// - Start once when enabled
-		// - Never stop on pause/resume
-        //if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {			
-			if (!isEnabled) return;
-		//}
-		// Android ≤11:
-	    // - MAY start/stop on background transitions
-	    // - BUT do NOT rely on this for recovery logic
-		//else {
-		//	if (!inBackground && !isEnabled) return;
-		//}
 
         try {
 			Activity context = cordova.getActivity();
@@ -289,19 +273,6 @@ public class BackgroundMode extends CordovaPlugin {
     {
 		if (!isForegroundStarted) return;
 		
-		// Android 12+:
-		// - Start once when enabled
-		// - Never stop on pause/resume
-        //if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-			if (isEnabled) return;
-		//}
-		// Android ≤11:
-	    // - MAY start/stop on background transitions
-	    // - BUT do NOT rely on this for recovery logic
-		//else {
-		//	if (inBackground || isEnabled) return;
-		//}
-
         Activity context = cordova.getActivity();
         Intent intent    = new Intent(context, ForegroundService.class);
         context.stopService(intent);
