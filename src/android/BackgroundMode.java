@@ -14,10 +14,6 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONException;
 
-import de.einfachhans.BackgroundMode.ForegroundService;
-
-import static de.einfachhans.BackgroundMode.BackgroundModeExt.clearKeyguardFlags;
-
 public class BackgroundMode extends CordovaPlugin {
 
     // Event types for callbacks
@@ -49,6 +45,9 @@ public class BackgroundMode extends CordovaPlugin {
 
     // Flag indicates if the foreground services has been started
     private boolean isForegroundStarted = false;
+    
+	// Flag indicates if the app is in background or foreground
+    private boolean inBackground = false;
     
     @Override
     public void onDestroy()
@@ -84,6 +83,14 @@ public class BackgroundMode extends CordovaPlugin {
             case "requestPermissions":
                 requestNotificationPermission(callback);
                 break;
+			case "background":
+				BackgroundModeExt.moveToBackground();
+				callback.success();
+				break;
+			case "foreground":
+				gotoForeground();
+				callback.success();
+				break;
             default:
                 validAction = false;
         }
@@ -203,7 +210,7 @@ public class BackgroundMode extends CordovaPlugin {
     @Override
     public void onStop ()
 	{
-        clearKeyguardFlags(cordova.getActivity());
+        BackgroundModeExt.clearKeyguardFlags(cordova.getActivity());
     }
 
     /**
@@ -212,7 +219,8 @@ public class BackgroundMode extends CordovaPlugin {
     @Override
     public void onPause(boolean multitasking)
     {
-		clearKeyguardFlags(cordova.getActivity());
+		inBackground = true;
+		BackgroundModeExt.clearKeyguardFlags(cordova.getActivity());
     }
 
     /**
@@ -221,6 +229,22 @@ public class BackgroundMode extends CordovaPlugin {
     @Override
     public void onResume (boolean multitasking)
     {
+		inBackground = false;
+    }
+
+	/**
+     * Move the application to foreground
+     */
+    private void gotoForeground()
+    {
+		if (!inBackground) return;
+		
+        if (!isForegroundStarted) return;
+
+		Activity context = cordova.getActivity();
+		Intent intent    = new Intent(context, ForegroundService.class);
+		intent.setAction(ForegroundService.GOTO_FOREGROUND);
+		context.startService(intent);
     }
 
     /**
