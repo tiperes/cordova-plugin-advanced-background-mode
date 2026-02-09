@@ -84,7 +84,7 @@ public class BackgroundMode extends CordovaPlugin {
                 requestNotificationPermission(callback);
                 break;
 			case "background":
-				BackgroundModeExt.moveToBackground(cordova.getActivity();
+				BackgroundModeExt.moveToBackground(cordova.getActivity());
 				callback.success();
 				break;
 			case "foreground":
@@ -241,7 +241,7 @@ public class BackgroundMode extends CordovaPlugin {
 		
         if (!isForegroundStarted) {
 			// Fallback if no Foreground Service
-			BackgroundModeExt.moveToForeground(cordova.getActivity();
+			BackgroundModeExt.moveToForeground(cordova.getActivity());
 			return;
 		}
 
