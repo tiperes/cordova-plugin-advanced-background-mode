@@ -102,11 +102,11 @@ public class BackgroundModeExt extends CordovaPlugin {
         return validAction;
     }
 
-    static void moveToBackground() {
+    private void moveToBackground() {
         moveToBackground(cordova.getActivity());
     }
 
-    static void moveToBackground(Context context) {
+    public static void moveToBackground(Context context) {
         if (context == null) return;
 
         Intent intent = new Intent(Intent.ACTION_MAIN);
@@ -115,14 +115,14 @@ public class BackgroundModeExt extends CordovaPlugin {
         context.startActivity(intent);
     }
 
-    static void moveToForeground() {
+    private void moveToForeground() {
         Activity activity = cordova.getActivity();
         if (activity == null) return;
         
         moveToForeground(activity.getApplicationContext(), activity);
     }
 
-    static void moveToForeground(Context context, Activity activity) {
+    public static void moveToForeground(Context context, Activity activity) {
         if (context == null) return;
 
         Intent intent = getLaunchIntent(context);
@@ -409,7 +409,7 @@ public class BackgroundModeExt extends CordovaPlugin {
         });
     }
 
-    static void clearKeyguardFlags(Activity activity) {
+    public static void clearKeyguardFlags(Activity activity) {
         if (activity == null) return;
 
         activity.runOnUiThread(() -> {
@@ -424,17 +424,17 @@ public class BackgroundModeExt extends CordovaPlugin {
         });
     }
 
-    private static Intent getLaunchIntent(Context context) {
-        if (context == null) return null;
-
-        return context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
-    }
-
-    private static Intent getLaunchIntent() {
+    private Intent getLaunchIntent() {
         Activity activity = cordova.getActivity();
         if (activity == null) return null;
 
         return getLaunchIntent(activity.getApplicationContext());
+    }
+
+    private static Intent getLaunchIntent(Context context) {
+        if (context == null) return null;
+
+        return context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
     }
 
     private Object getService(String name) {
