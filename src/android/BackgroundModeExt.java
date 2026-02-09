@@ -210,7 +210,7 @@ public class BackgroundModeExt extends CordovaPlugin {
             activity.startActivity(intent);
         } catch (Exception e) {
             // Handle case where intent can't be resolved
-            android.util.Log.e("BackgroundMode", "Cannot open battery optimization settings", e);
+            android.util.Log.e("BackgroundModeExt", "Cannot open battery optimization settings", e);
         }
     }
 
