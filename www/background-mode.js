@@ -278,7 +278,7 @@ exports.openAppStartSettings = function (options)
 exports.moveToBackground = function()
 {
     if (this._isAndroid) {
-        cordova.exec(null, null, 'BackgroundModeExt', 'background', []);
+        cordova.exec(null, null, 'BackgroundMode', 'background', []);
     }
 };
 
@@ -290,7 +290,7 @@ exports.moveToBackground = function()
 exports.moveToForeground = function()
 {
     if (this._isAndroid) {
-        cordova.exec(null, null, 'BackgroundModeExt', 'foreground', []);
+        cordova.exec(null, null, 'BackgroundMode', 'foreground', []);
     }
 };
 
