@@ -102,57 +102,92 @@ public class BackgroundModeExt extends CordovaPlugin {
         return validAction;
     }
 
-    private void moveToBackground() {
+    static void moveToBackground() {
+        moveToBackground(cordova.getActivity());
+    }
+
+    static void moveToBackground(Context context) {
+        if (context == null) return;
+
         Intent intent = new Intent(Intent.ACTION_MAIN);
         intent.addCategory(Intent.CATEGORY_HOME);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        getApp().startActivity(intent);
+        context.startActivity(intent);
     }
 
-    private void moveToForeground() {
-        Activity app = getApp();
-        if (app == null) return;
+    static void moveToForeground() {
+        Activity activity = cordova.getActivity();
+        if (activity == null) return;
+        
+        moveToForeground(activity.getApplicationContext(), activity);
+    }
 
-        Intent intent = getLaunchIntent();
+    static void moveToForeground(Context context, Activity activity) {
+        if (context == null) return;
+
+        Intent intent = getLaunchIntent(context);
         if (intent == null) return;
 
         intent.addFlags(
+            Intent.FLAG_ACTIVITY_NEW_TASK |
             Intent.FLAG_ACTIVITY_REORDER_TO_FRONT |
             Intent.FLAG_ACTIVITY_SINGLE_TOP |
             Intent.FLAG_ACTIVITY_CLEAR_TOP
         );
 
-        clearScreenAndKeyguardFlags();
-        app.startActivity(intent);
+        context.startActivity(intent);
+
+        // Apply window flags only if Activity is available
+        if (activity != null) {
+            addScreenAndKeyguardFlags(activity);
+        }
     }
 
     private void disableWebViewOptimizations() {
-        Activity app = getApp();
-        if (app == null || webView == null) return;
+        Activity activity = cordova.getActivity();
+        if (activity == null) return;
     
-        app.runOnUiThread(() -> {
-            View view;
-            try {
-                view = webView.getEngine().getView();
-            } catch (Exception e) {
-                return;
+        int maxRetries = 20;      // total attempts
+        long retryDelay = 200;    // ms between attempts
+    
+        new Thread(() -> {
+            int attempts = 0;
+            CordovaWebView wv = null;
+    
+            while (attempts < maxRetries) {
+                wv = getWebView();
+                if (wv != null) break;
+    
+                attempts++;
+                try { Thread.sleep(retryDelay); } catch (InterruptedException ignored) {}
             }
     
-            if (view == null) return;
+            // WebView still not available
+            if (wv == null) return;
     
-            // Ensure view is attached and visible
-            view.post(() -> {
-                if (!view.isAttachedToWindow()) return;
-    
+            activity.runOnUiThread(() -> {
+                View view;
                 try {
-                    Class.forName("org.crosswalk.engine.XWalkCordovaView")
-                        .getMethod("onShow")
-                        .invoke(view);
-                } catch (Exception ignore) {
-                    view.dispatchWindowVisibilityChanged(View.VISIBLE);
-                }
+                    view = wv.getEngine().getView();
+                } catch (Exception e) { return; }
+    
+                if (view == null) return;
+    
+                view.post(() -> {
+                    if (!view.isAttachedToWindow()) return;
+    
+                    try {
+                        // Crosswalk-specific hook
+                        Class.forName("org.crosswalk.engine.XWalkCordovaView")
+                            .getMethod("onShow")
+                            .invoke(view);
+                    } catch (Exception ignore) {
+                        // fallback for normal WebView
+                        view.dispatchWindowVisibilityChanged(View.VISIBLE);
+                    }
+                });
             });
-        });
+        }).start();
     }
 
     @SuppressLint("BatteryLife")
@@ -182,25 +217,44 @@ public class BackgroundModeExt extends CordovaPlugin {
     private void openAppStart(Object arg) {
         Activity activity = cordova.getActivity();
         if (activity == null) return;
-
+    
         PackageManager pm = activity.getPackageManager();
-
+        boolean foundIntent = false;
+    
         for (Intent intent : getAppStartIntents()) {
             try {
                 if (pm.resolveActivity(intent, MATCH_DEFAULT_ONLY) != null) {
+                    foundIntent = true;
                     JSONObject spec = (arg instanceof JSONObject) ? (JSONObject) arg : null;
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-
+    
+                    android.util.Log.d("BackgroundModeExt", "Found auto-start intent: " + intent);
+    
                     if (arg instanceof Boolean && !((Boolean) arg)) {
                         activity.startActivity(intent);
                         break;
                     }
-
+    
                     showAppStartDialog(activity, intent, spec);
                     break;
+                } else {
+                    android.util.Log.d("BackgroundModeExt", "Skipped intent: " + intent);
                 }
             } catch (Exception e) {
-                // Try next intent
+                android.util.Log.e("BackgroundModeExt", "Error resolving intent: " + intent, e);
+            }
+        }
+    
+        // Fallback to app settings if no intent resolved
+        if (!foundIntent) {
+            try {
+                Intent settingsIntent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                        .setData(Uri.parse("package:" + activity.getPackageName()))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                activity.startActivity(settingsIntent);
+                android.util.Log.d("BackgroundModeExt", "Fallback to app settings");
+            } catch (Exception e) {
+                android.util.Log.e("BackgroundModeExt", "Failed to open app settings", e);
             }
         }
     }
@@ -276,10 +330,11 @@ public class BackgroundModeExt extends CordovaPlugin {
     }
 
     private void unlock() {
-        addSreenAndKeyguardFlags();
+        Activity activity = cordova.getActivity();
+        addScreenAndKeyguardFlags(activity);
         Intent intent = getLaunchIntent();
         if (intent != null) {
-            getApp().startActivity(intent);
+            activity.startActivity(intent);
         }
     }
 
@@ -314,13 +369,12 @@ public class BackgroundModeExt extends CordovaPlugin {
         }
     }
 
-    private void addSreenAndKeyguardFlags() {
-        Activity app = getApp();
-        if (app == null) return;
+    private static void addScreenAndKeyguardFlags(Activity activity) {
+        if (activity == null) return;
 
-        app.runOnUiThread(() -> {
+        activity.runOnUiThread(() -> {
             try {
-                Window window = app.getWindow();
+                Window window = activity.getWindow();
                 if (window != null) {
                     window.addFlags(
                         FLAG_ALLOW_LOCK_WHILE_SCREEN_ON |
@@ -335,13 +389,12 @@ public class BackgroundModeExt extends CordovaPlugin {
         });
     }
 
-    private void clearScreenAndKeyguardFlags() {
-        Activity app = getApp();
-        if (app == null) return;
+    private static void clearScreenAndKeyguardFlags(Activity activity) {
+        if (activity == null) return;
 
-        app.runOnUiThread(() -> {
+        activity.runOnUiThread(() -> {
             try {
-                Window window = app.getWindow();
+                Window window = activity.getWindow();
                 if (window != null) {
                     window.clearFlags(
                         FLAG_ALLOW_LOCK_WHILE_SCREEN_ON |
@@ -356,12 +409,12 @@ public class BackgroundModeExt extends CordovaPlugin {
         });
     }
 
-    static void clearKeyguardFlags(Activity app) {
-        if (app == null) return;
+    static void clearKeyguardFlags(Activity activity) {
+        if (activity == null) return;
 
-        app.runOnUiThread(() -> {
+        activity.runOnUiThread(() -> {
             try {
-                Window window = app.getWindow();
+                Window window = activity.getWindow();
                 if (window != null) {
                     window.clearFlags(FLAG_DISMISS_KEYGUARD);
                 }
@@ -371,25 +424,24 @@ public class BackgroundModeExt extends CordovaPlugin {
         });
     }
 
-    Activity getApp() {
-        return cordova.getActivity();
+    private static Intent getLaunchIntent(Context context) {
+        if (context == null) return null;
+
+        return context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
     }
 
-    private Intent getLaunchIntent() {
-        Activity app = getApp();
-        if (app == null) return null;
+    private static Intent getLaunchIntent() {
+        Activity activity = cordova.getActivity();
+        if (activity == null) return null;
 
-        Context appContext = app.getApplicationContext();
-        String pkgName = appContext.getPackageName();
-
-        return appContext.getPackageManager().getLaunchIntentForPackage(pkgName);
+        return getLaunchIntent(activity.getApplicationContext());
     }
 
     private Object getService(String name) {
-        Activity app = getApp();
-        if (app == null) return null;
+        Activity activity = cordova.getActivity();
+        if (activity == null) return null;
         
-        return app.getSystemService(name);
+        return activity.getSystemService(name);
     }
 
     private List<Intent> getAppStartIntents() {
@@ -448,7 +500,11 @@ public class BackgroundModeExt extends CordovaPlugin {
                 "com.asus.mobilemanager",
                 "com.asus.mobilemanager.entry.FunctionActivity"
             )).setData(Uri.parse("mobilemanager://function/entry/AutoStart")),
-            // Samsung
+            // Samsung Global & China
+            new Intent().setComponent(new ComponentName(
+                "com.samsung.android.sm",
+                "com.samsung.android.sm.ui.ram.AutoRunActivity"
+            )),
             new Intent().setComponent(new ComponentName(
                 "com.samsung.android.sm_cn",
                 "com.samsung.android.sm.ui.ram.AutoRunActivity"
@@ -456,6 +512,20 @@ public class BackgroundModeExt extends CordovaPlugin {
             // Meizu
             new Intent().setComponent(ComponentName.unflattenFromString(
                 "com.meizu.safe/.permission.SmartBGActivity"
+            )),
+            // Lenovo / ZUI
+            new Intent().setComponent(new ComponentName(
+                "com.zui.safecenter",
+                "com.lenovo.safecenter.MainTab.LeSafeMainActivity"
+            )),
+            // Nubia
+            new Intent().setComponent(ComponentName.unflattenFromString(
+                "cn.nubia.security2/.selfstart.ui.SelfStartActivity"
+            )),
+            // Zebra
+            new Intent().setComponent(new ComponentName(
+                "com.symbol.deviceenterprise",
+                "com.symbol.deviceenterprise.DeviceAdminActivity"
             )),
             // Other manufacturers
             new Intent().setAction("com.letv.android.permissionautoboot"),
@@ -465,14 +535,6 @@ public class BackgroundModeExt extends CordovaPlugin {
             new Intent().setComponent(new ComponentName(
                 "com.yulong.android.coolsafe",
                 ".ui.activity.autorun.AutoRunListActivity"
-            )),
-            new Intent().setComponent(new ComponentName(
-                "cn.nubia.security2",
-                "cn.nubia.security.appmanage.selfstart.ui.SelfStartActivity"
-            )),
-            new Intent().setComponent(new ComponentName(
-                "com.zui.safecenter",
-                "com.lenovo.safecenter.MainTab.LeSafeMainActivity"
             ))
         );
     }
