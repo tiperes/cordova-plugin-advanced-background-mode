@@ -157,24 +157,21 @@ public class BackgroundModeExt extends CordovaPlugin {
         long retryDelay = 200;    // ms between attempts
     
         new Thread(() -> {
-            int attempts = 0;
-            CordovaWebView wv = null;
-    
+            int attempts = 0;    
             while (attempts < maxRetries) {
-                wv = getWebView();
-                if (wv != null) break;
+                if (webView != null) break;
     
                 attempts++;
                 try { Thread.sleep(retryDelay); } catch (InterruptedException ignored) {}
             }
     
             // WebView still not available
-            if (wv == null) return;
+            if (webView == null) return;
     
             activity.runOnUiThread(() -> {
                 View view;
                 try {
-                    view = wv.getEngine().getView();
+                    view = webView.getEngine().getView();
                 } catch (Exception e) { return; }
     
                 if (view == null) return;
