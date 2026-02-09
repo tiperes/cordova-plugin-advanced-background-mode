@@ -222,43 +222,45 @@ public class BackgroundModeExt extends CordovaPlugin {
         if (activity == null) return;
     
         PackageManager pm = activity.getPackageManager();
-        boolean foundIntent = false;
+        Intent intent = null;
     
-        for (Intent intent : getAppStartIntents()) {
+        for (Intent appStartintent : getAppStartIntents()) {
             try {
-                if (pm.resolveActivity(intent, MATCH_DEFAULT_ONLY) != null) {
-                    foundIntent = true;
-                    JSONObject spec = (arg instanceof JSONObject) ? (JSONObject) arg : null;
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-    
-                    android.util.Log.d("BackgroundModeExt", "Found auto-start intent: " + intent);
-    
-                    if (arg instanceof Boolean && !((Boolean) arg)) {
-                        activity.startActivity(intent);
-                        break;
-                    }
-    
-                    showAppStartDialog(activity, intent, spec);
+                if (pm.resolveActivity(appStartintent, MATCH_DEFAULT_ONLY) != null) {
+                    android.util.Log.d("BackgroundModeExt", "Found auto-start intent: " + appStartintent);
+                    
+                    intent = appStartintent;
                     break;
                 } else {
-                    android.util.Log.d("BackgroundModeExt", "Skipped intent: " + intent);
+                    android.util.Log.d("BackgroundModeExt", "Skipped intent: " + appStartintent);
                 }
             } catch (Exception e) {
-                android.util.Log.e("BackgroundModeExt", "Error resolving intent: " + intent, e);
+                android.util.Log.e("BackgroundModeExt", "Error resolving intent: " + appStartintent, e);
             }
         }
-    
         // Fallback to app settings if no intent resolved
-        if (!foundIntent) {
+        if (intent == null) {
             try {
-                Intent settingsIntent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                        .setData(Uri.parse("package:" + activity.getPackageName()))
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                activity.startActivity(settingsIntent);
+                intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                        .setData(Uri.parse("package:" + activity.getPackageName()));
+                
                 android.util.Log.d("BackgroundModeExt", "Fallback to app settings");
             } catch (Exception e) {
                 android.util.Log.e("BackgroundModeExt", "Failed to open app settings", e);
+                return;
             }
+        }
+        
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        if (arg instanceof Boolean && !((Boolean) arg)) {
+            try {
+                activity.startActivity(intent);
+            } catch (Exception e) {
+                android.util.Log.e("BackgroundModeExt", "Failed to open app start", e);
+            }
+        }
+        else {
+            showAppStartDialog(activity, intent, (arg instanceof JSONObject) ? (JSONObject) arg : null);
         }
     }
 
@@ -270,7 +272,7 @@ public class BackgroundModeExt extends CordovaPlugin {
             try {
                 activity.startActivity(intent);
             } catch (Exception e) {
-                // Handle error
+                android.util.Log.e("BackgroundModeExt", "Failed to open open app start from popup", e);
             }
         });
         
