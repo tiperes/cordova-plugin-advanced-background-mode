@@ -122,6 +122,12 @@ public class BackgroundModeExt extends CordovaPlugin {
         moveToForeground(activity.getApplicationContext(), activity);
     }
 
+    public static void moveToForeground(Activity activity) {
+        if (activity == null) return;
+        
+        moveToForeground(activity.getApplicationContext(), activity);
+    }
+
     public static void moveToForeground(Context context, Activity activity) {
         if (context == null) return;
 
