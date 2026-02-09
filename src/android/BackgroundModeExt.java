@@ -145,7 +145,7 @@ public class BackgroundModeExt extends CordovaPlugin {
 
         // Apply window flags only if Activity is available
         if (activity != null) {
-            addScreenAndKeyguardFlags(activity);
+            clearScreenAndKeyguardFlags(activity);
         }
     }
 
