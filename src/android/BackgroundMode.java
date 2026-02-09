@@ -239,7 +239,11 @@ public class BackgroundMode extends CordovaPlugin {
     {
 		if (!inBackground) return;
 		
-        if (!isForegroundStarted) return;
+        if (!isForegroundStarted) {
+			// Fallback if no Foreground Service
+			BackgroundModeExt.moveToForeground();
+			return;
+		}
 
 		Activity context = cordova.getActivity();
 		Intent intent    = new Intent(context, ForegroundService.class);
