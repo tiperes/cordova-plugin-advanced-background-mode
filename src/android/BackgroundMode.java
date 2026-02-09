@@ -1,19 +1,18 @@
 package de.einfachhans.BackgroundMode;
 
-import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 
 import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaPlugin;
 import org.apache.cordova.PluginResult;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.json.JSONException;
 
 import de.einfachhans.BackgroundMode.ForegroundService;
 
@@ -101,15 +100,15 @@ public class BackgroundMode extends CordovaPlugin {
 	 */
 	private void requestNotificationPermission(CallbackContext callback)
 	{
-		Activity activity = cordova.getActivity();
-		
+		if (permissionCallback != null) {
+		    callback.error("Permission request already in progress");
+		}
 	    // Android < 13 → permission not required
-	    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+	    else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
 	        callback.success();
 	    }
 	    // Already granted → immediate success
-	    else if (ContextCompat.checkSelfPermission(activity, POST_NOTIFICATIONS)
-	            == PackageManager.PERMISSION_GRANTED) {
+	    else if (cordova.hasPermission(POST_NOTIFICATIONS)) {
 	        // If there was a pending enable request, start foreground service
 	        if (isEnablePending) {
 	            isEnablePending = false;
@@ -128,10 +127,10 @@ public class BackgroundMode extends CordovaPlugin {
 		    callback.sendPluginResult(result);
 		
 		    // Request permissions
-			ActivityCompat.requestPermissions(
-				activity,
-				new String[] { POST_NOTIFICATIONS },
-				NOTIFICATION_PERMISSION_REQUEST_CODE
+			cordova.requestPermissions(
+				this,
+				NOTIFICATION_PERMISSION_REQUEST_CODE,
+				new String[] { POST_NOTIFICATIONS }
 			);
 		}
 	}
@@ -141,6 +140,7 @@ public class BackgroundMode extends CordovaPlugin {
      */
     @Override
 	public void onRequestPermissionResult(int requestCode, String[] permissions, int[] grantResults)
+	throws JSONException
 	{
 		// Not our request or callback already cleared
 	    if (requestCode != NOTIFICATION_PERMISSION_REQUEST_CODE || permissionCallback == null) return;
@@ -155,6 +155,7 @@ public class BackgroundMode extends CordovaPlugin {
 			permissionCallback.success();
 		// Denied
 		} else {
+			isEnablePending = false;
 	        if (!ActivityCompat.shouldShowRequestPermissionRationale(
 	                cordova.getActivity(), POST_NOTIFICATIONS)) {
 	            permissionCallback.error("Notification permission permanently denied. Please enable it in app settings.");
@@ -173,8 +174,7 @@ public class BackgroundMode extends CordovaPlugin {
 	{
 	    // Android 13+ check
 	    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-	        ContextCompat.checkSelfPermission(cordova.getActivity(),
-                POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+	        !cordova.hasPermission(POST_NOTIFICATIONS)) {
 	        
 	        // Will enable after permission granted
 	        isEnablePending = true;
