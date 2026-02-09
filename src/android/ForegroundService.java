@@ -22,7 +22,7 @@ public class ForegroundService extends Service {
     public static final int NOTIFICATION_ID = 101;
     public static final String ACTION_UPDATE = "ForegroundService.UPDATE";
     public static final String ACTION_RECOVER = "ForegroundService.RECOVER";
-    public static final String ACTION_GOTO_FOREGROUND = "ForegroundService.GOTO_FOREGROUND";
+    public static final String ACTION_FOREGROUND = "ForegroundService.FOREGROUND";
     
     private static final String CHANNEL_ID = "background_mode_channel";
     private static final String CHANNEL_NAME = "Background Mode";
@@ -80,7 +80,7 @@ public class ForegroundService extends Service {
             else if (ACTION_RECOVER.equals(action)) {
                 startForegroundSafe(getSettings());
             }
-            else if (ACTION_GOTO_FOREGROUND.equals(action)) {
+            else if (ACTION_FOREGROUND.equals(action)) {
                 // Move app to foreground
                 BackgroundModeExt.moveToForeground(
                     getApplicationContext(), // service context
