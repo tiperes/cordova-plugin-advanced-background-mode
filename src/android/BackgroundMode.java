@@ -88,7 +88,7 @@ public class BackgroundMode extends CordovaPlugin {
 				callback.success();
 				break;
 			case "foreground":
-				gotoForeground();
+				moveToForeground();
 				callback.success();
 				break;
             default:
@@ -235,7 +235,7 @@ public class BackgroundMode extends CordovaPlugin {
 	/**
      * Move the application to foreground
      */
-    private void gotoForeground()
+    private void moveToForeground()
     {
 		if (!inBackground) return;
 		
@@ -247,7 +247,7 @@ public class BackgroundMode extends CordovaPlugin {
 
 		Activity context = cordova.getActivity();
 		Intent intent    = new Intent(context, ForegroundService.class);
-		intent.setAction(ForegroundService.GOTO_FOREGROUND);
+		intent.setAction(ForegroundService.ACTION_FOREGROUND);
 		context.startService(intent);
     }
 
