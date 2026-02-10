@@ -260,13 +260,15 @@ exports.disableBatteryOptimizations = function()
  *
  * @param [ Object|Bool ] options Set to false if you dont want to display an
  *                                alert dialog first.
+ * @param [ Function ] success Callback on success
+ * @param [ Function ] error Callback on error
  *
  * @return [ Void ]
  */
-exports.openAppStartSettings = function (options)
+exports.openAppStartSettings = function (options, success, error)
 {
     if (this._isAndroid) {
-        cordova.exec(null, null, 'BackgroundModeExt', 'appstart', [options]);
+        cordova.exec(success, error, 'BackgroundModeExt', 'appstart', [options]);
     }
 };
 
