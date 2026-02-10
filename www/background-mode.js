@@ -48,6 +48,11 @@ exports._pluginInitialize = function()
 			// reset runtime settings to unset
 			exports._settings = {};
 		});
+		this.on('failure', function() {
+			exports._isActive = false;
+			// reset runtime settings to unset
+			exports._settings = {};
+		});
 	}
 	else if (device.platform == 'browser') {
         this._isActive = true;
@@ -188,7 +193,7 @@ exports.disable = function(success, error)
 
     var onSuccess = function() {
         success();
-    };
+    };	
     var onError = function(errorMsg) {
         error(errorMsg);
     };
