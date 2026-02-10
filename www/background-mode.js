@@ -165,7 +165,10 @@ exports.enable = function(success, error)
         return;
     }
 
-    var onSuccess = function() {
+    var onSuccess = function(isActive) {
+		if (isActive === true) {
+			this._isActive = true;
+		}
         success();
     };
     var onError = function(errorMsg) {
@@ -191,7 +194,10 @@ exports.disable = function(success, error)
         return;
     }
 
-    var onSuccess = function() {
+    var onSuccess = function(isInactive) {
+		if (isInactive === true) {
+			this._isActive = false;
+		}
         success();
     };	
     var onError = function(errorMsg) {
