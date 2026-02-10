@@ -41,6 +41,9 @@ public class BackgroundModeExt extends CordovaPlugin {
 
     private PowerManager.WakeLock wakeLock;
 
+	private CallbackContext appStartCallback;
+	private boolean appStartLaunched = false;
+
     @Override
     public boolean execute(String action, JSONArray args, CallbackContext callback) {
         boolean validAction = true;
@@ -56,8 +59,7 @@ public class BackgroundModeExt extends CordovaPlugin {
                     callback.success();
                     break;
                 case "appstart":
-                    openAppStart(args.opt(0));
-                    callback.success();
+                    openAppStart(callback, args.opt(0));
                     break;
                 case "background":
                     moveToBackground();
@@ -217,9 +219,12 @@ public class BackgroundModeExt extends CordovaPlugin {
         }
     }
 
-    private void openAppStart(Object arg) {
+    private void openAppStart(CallbackContext callback, Object arg) {
         Activity activity = cordova.getActivity();
-        if (activity == null) return;
+        if (activity == null) {
+	        callback.error("No activity");
+	        return;
+	    }
     
         PackageManager pm = activity.getPackageManager();
         Intent intent = null;
@@ -227,15 +232,15 @@ public class BackgroundModeExt extends CordovaPlugin {
         for (Intent appStartIntent : getAppStartIntents()) {
             try {
                 if (pm.resolveActivity(appStartIntent, MATCH_DEFAULT_ONLY) != null) {
-					android.util.Log.d("BackgroundModeExt", "Found auto-start intent: " + intent);
+					android.util.Log.d("BackgroundModeExt", "Found auto-start intent: " + appStartIntent);
 					
 					intent = appStartIntent;
                     break;
                 } else {
-                    android.util.Log.d("BackgroundModeExt", "Skipped intent: " + intent);
+                    android.util.Log.d("BackgroundModeExt", "Skipped auto-start intent: " + appStartIntent);
                 }
             } catch (Exception e) {
-                android.util.Log.e("BackgroundModeExt", "Error resolving intent: " + intent, e);
+                android.util.Log.e("BackgroundModeExt", "Error resolving auto-start intent: " + appStartIntent, e);
             }
         }
     
@@ -249,15 +254,26 @@ public class BackgroundModeExt extends CordovaPlugin {
 		
 		// Open settings
 		intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+		// Store callback for later
+		appStartCallback = callback;
+		appStartLaunched = false;
 		
+		// Tell Cordova: result will come later
+		PluginResult result = new PluginResult(PluginResult.Status.NO_RESULT);
+		result.setKeepCallback(true);
+		callback.sendPluginResult(result);
+
+		// Open app start settings
 		if (arg instanceof Boolean && !((Boolean) arg)) {
 			try {
-				activity.startActivity(intent);
+        		launchAppStart(activity, intent);
 			} catch (Exception e) {
-				android.util.Log.e("BackgroundModeExt", "Failed to open app start", e);
+				sendAppStartResult("Failed to open");
 			}
 		}
-		else {
+		// Show confirmation popup and then open app start settings
+		else {			
 			showAppStartDialog(activity, intent, (arg instanceof JSONObject) ? (JSONObject) arg : null);
 		}
     }
@@ -268,13 +284,18 @@ public class BackgroundModeExt extends CordovaPlugin {
 
         dialog.setPositiveButton(android.R.string.ok, (o, d) -> {
             try {
-                activity.startActivity(intent);
+                launchAppStart(activity, intent);
             } catch (Exception e) {
-                android.util.Log.e("BackgroundModeExt", "Failed to open app start from popup", e);
+				sendAppStartResult("Failed to open from popup");
             }
         });
         
-        dialog.setNegativeButton(android.R.string.cancel, (o, d) -> {});
+        dialog.setNegativeButton(android.R.string.cancel, (o, d) -> {
+			sendAppStartResult("Canceled from popup");
+		});
+		dialog.setOnCancelListener(d -> {
+	        sendAppStartResult("Canceled from popup");
+	    });
         dialog.setCancelable(true);
 
         if (spec != null && spec.has("title")) {
@@ -290,6 +311,32 @@ public class BackgroundModeExt extends CordovaPlugin {
 
         activity.runOnUiThread(dialog::show);
     }
+
+	private void sendAppStartResult(String error) {
+		if (appStartCallback == null) return;
+
+		if (error == null) {
+			appStartCallback.success();
+		}
+		else  {
+			appStartCallback.error(error);
+		}
+		// Clear callback
+		appStartCallback = null;
+		appStartLaunched = false;
+	}
+
+	private void launchAppStart(Activity activity, Intent intent) {
+		activity.startActivity(intent);
+		appStartLaunched = true;
+
+		// Schedule App Start Timeout
+	    activity.getWindow().getDecorView().postDelayed(() -> {
+	        if (appStartLaunched) {
+	            sendAppStartResult(null);
+	        }
+	    }, 3000); // 2–3 seconds is ideal
+	}
 
     @TargetApi(Build.VERSION_CODES.LOLLIPOP)
     private void setExcludeFromRecents(boolean value) {
