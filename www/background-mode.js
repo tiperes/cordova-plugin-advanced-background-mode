@@ -35,9 +35,8 @@ var exec    = require('cordova/exec'),
 exports._pluginInitialize = function()
 {
     this._isAndroid = device.platform.match(/^android|amazon/i) !== null;	
-	this._isEnabled = false;
 	this._isActive = false;
-		
+	
 	if (this._isAndroid) {		
 		this.on('activate', function() {
 			exports._isActive = true;
@@ -51,19 +50,8 @@ exports._pluginInitialize = function()
 		});
 	}
 	else if (device.platform == 'browser') {
-        this._isEnabled = true;
         this._isActive = true;
     }
-};
-
-/**
- * If the mode is enabled or disabled.
- *
- * @return [ Boolean ]
- */
-exports.isEnabled = function()
-{
-    return this._isEnabled !== false;
 };
 
 /**
@@ -167,14 +155,12 @@ exports.configure = function (options)
  */
 exports.enable = function(success, error)
 {
-    if (this._isEnabled) {
+    if (this._isActive) {
         success();
         return;
     }
 
     var onSuccess = function() {
-        exports._isEnabled = true;
-        exports.fireEvent('enable');
         success();
     };
     var onError = function(errorMsg) {
@@ -195,14 +181,12 @@ exports.enable = function(success, error)
  */
 exports.disable = function(success, error)
 {
-    if (!this._isEnabled) {
+    if (!this._isActive) {
         success();
         return;
     }
 
     var onSuccess = function() {
-        exports._isEnabled = false;
-        exports.fireEvent('disable');
         success();
     };
     var onError = function(errorMsg) {
@@ -496,10 +480,6 @@ channel.onCordovaReady.subscribe(function()
 // Called after 'deviceready' event
 channel.deviceready.subscribe(function()
 {
-    if (exports._isEnabled) {
-        exports.fireEvent('enable');
-    }
-
     if (exports._isActive) {
         exports.fireEvent('activate');
     }
