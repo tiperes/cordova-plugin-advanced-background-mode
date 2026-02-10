@@ -16,9 +16,6 @@ import org.json.JSONException;
 
 public class BackgroundMode extends CordovaPlugin {
 
-    // Event types for callbacks
-    private enum Event { ACTIVATE, DEACTIVATE, FAILURE }
-
     // Plugin namespace
     private static final String JS_NAMESPACE = "cordova.plugins.backgroundMode";
 
@@ -49,7 +46,7 @@ public class BackgroundMode extends CordovaPlugin {
     @Override
     public void onDestroy()
     {
-        stopForeground();
+        stopForeground(null);
         // Older then Android 8
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             android.os.Process.killProcess(android.os.Process.myPid());
@@ -63,7 +60,6 @@ public class BackgroundMode extends CordovaPlugin {
     public boolean execute (String action, JSONArray args, CallbackContext callback)
     {
         boolean validAction = true;
-
         switch (action)
         {
             case "configure":
@@ -90,11 +86,9 @@ public class BackgroundMode extends CordovaPlugin {
             default:
                 validAction = false;
         }
-
         if (!validAction) {
             callback.error("Invalid action: " + action);
         }
-
         return validAction;
     }
 	
@@ -104,7 +98,7 @@ public class BackgroundMode extends CordovaPlugin {
 	private void requestNotificationPermission(CallbackContext callback)
 	{
 		if (permissionCallback != null) {
-		    callback.error("Permission request already in progress");
+		    callback.error("Permission request already in progress.");
 		}
 	    // Android < 13 → permission not required
 	    else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
@@ -152,7 +146,7 @@ public class BackgroundMode extends CordovaPlugin {
 	                cordova.getActivity(), POST_NOTIFICATIONS)) {
 	            permissionCallback.error("Notification permission permanently denied. Please enable it in app settings.");
 	        } else {
-	            permissionCallback.error("Notification permission denied");
+	            permissionCallback.error("Notification permission denied.");
 	        }
 		}
 		// Clear callback
@@ -167,12 +161,11 @@ public class BackgroundMode extends CordovaPlugin {
 	    // Android 13+ check
 	    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
 	        !cordova.hasPermission(POST_NOTIFICATIONS)) {	        
-	        callback.error("Notification permission required");
+	        callback.error("Notification permission required.");
 	        return;
 	    }
 		// Permission already granted or not needed → start foreground service
-	    startForeground();
-		callback.success(isForegroundStarted);
+	    startForeground(callback);
 	}
 
     /**
@@ -180,8 +173,7 @@ public class BackgroundMode extends CordovaPlugin {
      */
     private void disableMode(CallbackContext callback)
     {
-		stopForeground();
-		callback.success(!isForegroundStarted);
+		stopForeground(callback);
     }
 
     /**
@@ -252,7 +244,7 @@ public class BackgroundMode extends CordovaPlugin {
     /**
      * Bind the activity to a background service and put them into foreground state.
      */
-    private void startForeground()
+    private void startForeground(CallbackContext callback)
     {
 		if (isForegroundStarted) return;
 
@@ -268,16 +260,16 @@ public class BackgroundMode extends CordovaPlugin {
             }
             
             isForegroundStarted = true;            
-            fireEvent(Event.ACTIVATE, null);
+            if (callback != null) callback.success();
 		} catch (Exception e) {
-			fireEvent(Event.FAILURE, String.format("'%s'", e.getMessage()));
+			if (callback != null) callback.error(e.getMessage());
 		}
     }
 
     /**
      * Stop the foreground service.
      */
-    private void stopForeground()
+    private void stopForeground(CallbackContext callback)
     {
 		if (!isForegroundStarted) return;
 
@@ -290,17 +282,6 @@ public class BackgroundMode extends CordovaPlugin {
 		}
 		
         isForegroundStarted = false;
-        fireEvent(Event.DEACTIVATE, null);
-    }
-
-    /**
-     * Fire event with some parameters inside the web view.
-     */
-    private void fireEvent (Event event, String params)
-    {
-        String eventName = event.name().toLowerCase();
-        String js 		 = String.format("%s.fireEvent('%s',%s);", JS_NAMESPACE, eventName, params);
-
-        cordova.getActivity().runOnUiThread(() -> webView.loadUrl("javascript:" + js));
+		if (callback != null) callback.success();
     }
 }
