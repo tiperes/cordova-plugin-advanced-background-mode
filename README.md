@@ -165,7 +165,8 @@ document.addEventListener('deviceready', function () {
 }, false);
 ```
 
-### Request Permissions (Required for Android 13+)
+### Request Notification Permissions
+IMPORTANT: On Android 13+, you must have notification permissions to be able to enable background mode.
 ```javascript
 cordova.plugins.backgroundMode.requestPermissions(
     function() {
@@ -180,8 +181,6 @@ cordova.plugins.backgroundMode.requestPermissions(
 ```
 
 ### Enable/Disable Background Mode
-**NOTE:** On Android 13+, if the app does not have notification permissions, this will implicitly request (same as requestPermissions).
-
 ```javascript
 // Enable background mode
 cordova.plugins.backgroundMode.enable(
@@ -436,7 +435,7 @@ The plugin automatically handles interruptions (phone calls, etc.) and restarts 
 - Check manufacturer-specific settings: `openAppStartSettings()`
 
 **Notification not showing on Android 13+**
-- Call `requestPermissions()` or `enable()`
+- Call `requestPermissions()` before `enable()`
 - Call `openAppStartSettings` as a fallback
 - Check if user denied permission in system settings
 
