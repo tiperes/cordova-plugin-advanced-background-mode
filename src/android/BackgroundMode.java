@@ -166,15 +166,13 @@ public class BackgroundMode extends CordovaPlugin {
 	{
 	    // Android 13+ check
 	    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-	        !cordova.hasPermission(POST_NOTIFICATIONS)) {
-	        
+	        !cordova.hasPermission(POST_NOTIFICATIONS)) {	        
 	        callback.error("Notification permission required");
 	        return;
 	    }
+		callback.success();
 		// Permission already granted or not needed → start foreground service
 	    startForeground();
-
-		callback.success();
 	}
 
     /**
@@ -182,9 +180,8 @@ public class BackgroundMode extends CordovaPlugin {
      */
     private void disableMode(CallbackContext callback)
     {
-		stopForeground();
-
 		callback.success();
+		stopForeground();
     }
 
     /**
