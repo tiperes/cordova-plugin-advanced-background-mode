@@ -278,39 +278,66 @@ public class BackgroundModeExt extends CordovaPlugin {
 		}
     }
 
-    private void showAppStartDialog(Activity activity, Intent intent, JSONObject spec) {
-        AlertDialog.Builder dialog = new AlertDialog.Builder(activity, 
-            android.R.style.Theme_DeviceDefault_Light_Dialog);
-
-        dialog.setPositiveButton(android.R.string.ok, (o, d) -> {
-            try {
-                launchAppStart(activity, intent);
-            } catch (Exception e) {
-				sendAppStartResult("Failed to open from popup");
-            }
-        });
-        
-        dialog.setNegativeButton(android.R.string.cancel, (o, d) -> {
-			sendAppStartResult("Canceled from popup");
-		});
-		dialog.setOnCancelListener(d -> {
+	private void showAppStartDialog(Activity activity, Intent intent, JSONObject spec) {
+	    AlertDialog.Builder builder;	
+	    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+	        // Add Android 12+ Material dynamic color support
+	        builder = new AlertDialog.Builder(
+	            activity,
+	            android.R.style.Theme_DeviceDefault_Light_Dialog_Alert
+	        );
+	    } else {
+	        // Legacy fallback (Android 6–7)
+	        builder = new AlertDialog.Builder(activity);
+	    }
+	
+	    // Title
+	    if (spec != null && spec.has("title")) {
+	        String title = spec.optString("title", null);
+	        if (title != null && !title.isEmpty()) {
+	            builder.setTitle(title);
+	        }
+	    }
+	
+	    // Message
+	    if (spec != null && spec.has("text")) {
+	        builder.setMessage(spec.optString("text"));
+	    } else {
+	        builder.setMessage(
+	            "To ensure the app works properly in background, " +
+	            "please adjust the app start settings."
+	        );
+	    }
+	
+	    builder.setCancelable(true);
+	
+	    builder.setPositiveButton(android.R.string.ok, (d, w) -> {
+	        try {
+	            launchAppStart(activity, intent);
+	        } catch (Exception e) {
+	            sendAppStartResult("Failed to open from popup");
+	        }
+	    });
+	
+	    builder.setNegativeButton(android.R.string.cancel, (d, w) -> {
 	        sendAppStartResult("Canceled from popup");
 	    });
-        dialog.setCancelable(true);
-
-        if (spec != null && spec.has("title")) {
-            dialog.setTitle(spec.optString("title"));
-        }
-
-        if (spec != null && spec.has("text")) {
-            dialog.setMessage(spec.optString("text"));
-        } else {
-            dialog.setMessage("To ensure the app works properly in background, " +
-                "please adjust the app start settings.");
-        }
-
-        activity.runOnUiThread(dialog::show);
-    }
+	
+	    builder.setOnCancelListener(d -> {
+	        sendAppStartResult("Canceled from popup");
+	    });
+	
+	    activity.runOnUiThread(() -> {
+	        AlertDialog dialog = builder.create();
+	
+	        // Ensure modal dimmed backdrop (OEM-safe)
+	        if (dialog.getWindow() != null) {
+	            dialog.getWindow().setDimAmount(0.6f);
+	        }
+	
+	        dialog.show();
+	    });
+	}
 
 	private void sendAppStartResult(String error) {
 		if (appStartCallback == null) return;
