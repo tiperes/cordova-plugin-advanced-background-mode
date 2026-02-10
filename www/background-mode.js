@@ -37,7 +37,10 @@ exports._pluginInitialize = function()
     this._isAndroid = device.platform.match(/^android|amazon/i) !== null;	
 	this._isActive = false;
 	
-	if (this._isAndroid) {		
+	if (device.platform == 'browser') {
+        this._isActive = true;
+    }
+	else if (this._isAndroid) {		
 		this.on('activate', function() {
 			exports._isActive = true;
 			// reset runtime settings to defaults
@@ -54,9 +57,6 @@ exports._pluginInitialize = function()
 			exports._settings = {};
 		});
 	}
-	else if (device.platform == 'browser') {
-        this._isActive = true;
-    }
 };
 
 /**
@@ -165,15 +165,19 @@ exports.enable = function(success, error)
         return;
     }
 
-    var onSuccess = function(isActive) {
-		if (isActive === true) {
-			this._isActive = true;
-		}
-        success();
-    };
-    var onError = function(errorMsg) {
-        error(errorMsg);
-    };
+    var onSuccess = success;
+    var onError = error;
+
+	if (this._isAndroid) {
+		onSuccess = function() {
+			exports.fireEvent('activate');
+			success();
+		};
+		onError = function(errorMsg) {
+			exports.fireEvent('failure', errorMsg);
+	        error(errorMsg);
+	    };
+	}
 
     cordova.exec(onSuccess, onError, 'BackgroundMode', 'enable', []);
 };
@@ -194,15 +198,18 @@ exports.disable = function(success, error)
         return;
     }
 
-    var onSuccess = function(isInactive) {
-		if (isInactive === true) {
-			this._isActive = false;
-		}
-        success();
-    };	
-    var onError = function(errorMsg) {
-        error(errorMsg);
-    };
+    var onSuccess = success;
+    var onError = error;
+
+	if (this._isAndroid) {
+		onSuccess = function() {
+			exports.fireEvent('deactivate');
+			success();
+		};
+		onError = function(errorMsg) {
+	        error(errorMsg);
+	    };
+	}
 
     cordova.exec(onSuccess, onError, 'BackgroundMode', 'disable', []);
 };
