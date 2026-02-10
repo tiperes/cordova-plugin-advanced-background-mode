@@ -170,9 +170,9 @@ public class BackgroundMode extends CordovaPlugin {
 	        callback.error("Notification permission required");
 	        return;
 	    }
-		callback.success();
 		// Permission already granted or not needed → start foreground service
 	    startForeground();
+		callback.success(isForegroundStarted);
 	}
 
     /**
@@ -180,8 +180,8 @@ public class BackgroundMode extends CordovaPlugin {
      */
     private void disableMode(CallbackContext callback)
     {
-		callback.success();
 		stopForeground();
+		callback.success(!isForegroundStarted);
     }
 
     /**
@@ -280,11 +280,15 @@ public class BackgroundMode extends CordovaPlugin {
     private void stopForeground()
     {
 		if (!isForegroundStarted) return;
+
+		try {
+			Activity context = cordova.getActivity();
+	        Intent intent    = new Intent(context, ForegroundService.class);
+	        context.stopService(intent);
+		} catch (Exception ignored) {
+			// It should not happen, but if it fails it's because it has stopped
+		}
 		
-        Activity context = cordova.getActivity();
-        Intent intent    = new Intent(context, ForegroundService.class);
-        context.stopService(intent);
-        
         isForegroundStarted = false;
         fireEvent(Event.DEACTIVATE, null);
     }
