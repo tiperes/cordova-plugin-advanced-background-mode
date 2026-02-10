@@ -19,6 +19,7 @@ A Cordova plugin optimized for **OutSystems MABS 11/12** that enables infinite b
 ## 🌟 **Android 14+ Support** breaking changes
 
 - ❌ **Removed Silent configuration** - This configuration is no longer supported.
+- ❌ **Removed isEnabled function and enable/disable events** - Enable concept was promoting incorrect statuses on failed activation or when foreground service is killed by Android (e.g.: notifications are blocked).
 - ⚠️ **Background notification always visisble** - When enabling background mode, the foreground service and its notification will be initialized and displayed. The service and its notification will remain active being the app in foreground or background. The only way to hide it is to disable background mode.
 - ⚠️ **Avoid multiple enable/disable toggles** - Devices running Android 12+ may terminate the service aggressively. During the application's lifecycle, you should not reenable the background mode after it has been toogled from enabled to disabled. As previsouly, it starts disabled and you need to explicitly enable it.
 
@@ -157,17 +158,14 @@ document.addEventListener('deviceready', function () {
                 cordova.plugins.backgroundMode.enable();
             },
             function() {
-                console.log('Permissions denied');
+                console.error('Permissions denied');
             }
         );
     }
 }, false);
 ```
 
-### Request Permissions (Android 13+)
-
-**CRITICAL:** On Android 13+, you must request notification permissions before enabling background mode!
-
+### Request Permissions (Required for Android 13+)
 ```javascript
 cordova.plugins.backgroundMode.requestPermissions(
     function() {
@@ -182,24 +180,36 @@ cordova.plugins.backgroundMode.requestPermissions(
 ```
 
 ### Enable/Disable Background Mode
+**NOTE:** On Android 13+, if the app does not have notification permissions, this will implicitly request (same as requestPermissions).
 
 ```javascript
 // Enable background mode
-cordova.plugins.backgroundMode.enable();
+cordova.plugins.backgroundMode.enable(
+  function() {
+      console.log('Background mode enabled');
+  }, function(errorMsg) {
+      console.error('Background mode enable failed:', errorMsg);
+  }
+);
 
 // Disable background mode
-cordova.plugins.backgroundMode.disable();
+cordova.plugins.backgroundMode.disable(
+  function() {
+      console.log('Background mode disabled');
+  }
+);
 
 // Toggle
-cordova.plugins.backgroundMode.setEnabled(true); // or false
+cordova.plugins.backgroundMode.setEnabled(true,
+  function() {
+      console.log('Background mode enabled');
+  }, function(errorMsg) {
+      console.error('Background mode enable failed:', errorMsg);
+  }); // or false
 
 // Check status
-if (cordova.plugins.backgroundMode.isEnabled()) {
-    console.log('Background mode is enabled');
-}
-
 if (cordova.plugins.backgroundMode.isActive()) {
-    console.log('App is currently in background');
+    console.log('Background mode is enabled and active');
 }
 ```
 
@@ -208,24 +218,14 @@ if (cordova.plugins.backgroundMode.isActive()) {
 ```javascript
 // App entered background
 cordova.plugins.backgroundMode.on('activate', function() {
-    console.log('App is now in background');
+    console.log('Background mode has been actived');
     // Start your background tasks here
 });
 
 // App returned to foreground
 cordova.plugins.backgroundMode.on('deactivate', function() {
-    console.log('App is now in foreground');
+    console.log('Background mode has been deactived');
     // Stop background tasks
-});
-
-// Background mode enabled
-cordova.plugins.backgroundMode.on('enable', function() {
-    console.log('Background mode enabled');
-});
-
-// Background mode disabled
-cordova.plugins.backgroundMode.on('disable', function() {
-    console.log('Background mode disabled');
 });
 
 // Error occurred
@@ -322,12 +322,11 @@ cordova.plugins.backgroundMode.disableBatteryOptimizations();
 
 ### Disable WebView Optimizations
 
-Some WebView optimizations can interfere with background execution:
+Some WebView optimizations can interfere with background execution
+The best effort approach for most recent Android versions is to execute on application ready and on resume events:
 
 ```javascript
-cordova.plugins.backgroundMode.on('activate', function() {
-    cordova.plugins.backgroundMode.disableWebViewOptimizations(); 
-});
+cordova.plugins.backgroundMode.disableWebViewOptimizations();
 ```
 
 **⚠️ Warning:** This increases battery consumption!
@@ -338,13 +337,23 @@ Some manufacturers (Xiaomi, Huawei, Oppo, etc.) have auto-start restrictions:
 
 ```javascript
 // Show dialog first, then open settings
-cordova.plugins.backgroundMode.openAppStartSettings({
-    title: 'Enable Auto-Start',
-    text: 'Please allow this app to start automatically for background features to work.'
-});
+cordova.plugins.backgroundMode.openAppStartSettings(
+  {
+      title: 'Enable Auto-Start',
+      text: 'Please allow this app to start automatically for background features to work.'
+  }, function() {
+      console.log('App Start settings should be open:');
+  }, function(errorMsg) {
+      console.error('Failed to open App Start settings:', errorMsg);
+  });
 
 // Open settings directly without dialog
-cordova.plugins.backgroundMode.openAppStartSettings(false);
+cordova.plugins.backgroundMode.openAppStartSettings(false, function() {
+      console.log('App Start settings should be open:');
+  }, function(errorMsg) {
+      console.error('Failed to open App Start settings:', errorMsg);
+  }
+);
 ```
 
 ## 🍎 iOS-Specific Features
@@ -376,12 +385,11 @@ The plugin automatically handles interruptions (phone calls, etc.) and restarts 
 
 | Method | Parameters | Returns | Description |
 |--------|-----------|---------|-------------|
-| `enable(success, error)` | - | void | Enable background mode |
-| `disable(success, error)` | - | void | Disable background mode |
-| `setEnabled(enable, success, error)` | boolean | void | Enable or disable |
+| `enable(success, error)` | callbacks | void | Enable background mode |
+| `disable(success, error)` | callbacks | void | Disable background mode |
+| `setEnabled(enable, success, error)` | boolean, callbacks | void | Enable or disable |
 | `requestPermissions(success, error)` | callbacks | void | Request Android 13+ permissions |
-| `isEnabled()` | - | boolean | Check if enabled |
-| `isActive()` | - | boolean | Check if app is in background |
+| `isActive()` | - | boolean | Check if background is enabled and active |
 | `configure(options)` | object | void | Update notification |
 | `setDefaults(options)` | object | void | Set default notification |
 | `on(event, callback, scope)` | string, function, object | void | Add event listener |
@@ -398,17 +406,15 @@ The plugin automatically handles interruptions (phone calls, etc.) and restarts 
 - `overrideBackButton()` - Back button minimizes
 - `disableBatteryOptimizations()` - Open settings
 - `disableWebViewOptimizations()` - Increase performance
-- `openAppStartSettings(options)` - Open manufacturer settings
+- `openAppStartSettings(options, success, error)` - Open manufacturer settings
 
 ### Events
 
 | Event | Description |
 |-------|-------------|
-| `activate` | App entered background |
-| `deactivate` | App returned to foreground |
-| `enable` | Background mode enabled |
-| `disable` | Background mode disabled |
-| `failure` | Error occurred |
+| `activate` | Background mode enabled and active |
+| `deactivate` | Background mode disabled or inactive |
+| `failure` | Error occurred when enabling |
 
 ### Notification Options
 
@@ -430,12 +436,14 @@ The plugin automatically handles interruptions (phone calls, etc.) and restarts 
 - Check manufacturer-specific settings: `openAppStartSettings()`
 
 **Notification not showing on Android 13+**
-- Call `requestPermissions()` before `enable()`
+- Call `requestPermissions()` or `enable()`
+- Call `openAppStartSettings` as a fallback
 - Check if user denied permission in system settings
 
 **WebView stops working in background**
-- Call `disableWebViewOptimizations()` in the `activate` event
-- Note: This increases battery usage
+- Call `disableWebViewOptimizations()` on the OnAppReady and OnResume events
+- Note 1: This is a the best effort scenario
+- Note 2: increases battery usage
 
 **Build fails with ANDROIDXENABLED error**
 - Make sure to pass the variable in plugin installation (see Installation section)
@@ -461,7 +469,7 @@ The plugin automatically handles interruptions (phone calls, etc.) and restarts 
 - Ensure `deviceready` event has fired before accessing plugin
 
 **Background mode not activating**
-- Check if enabled: `cordova.plugins.backgroundMode.isEnabled()`
+- Check if active: `cordova.plugins.backgroundMode.isActive()`
 - Listen for `failure` event to catch errors
 - Check device logs for system-level errors
 
