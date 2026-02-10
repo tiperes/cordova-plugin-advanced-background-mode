@@ -262,7 +262,7 @@ public class BackgroundMode extends CordovaPlugin {
             isForegroundStarted = true;            
             if (callback != null) callback.success();
 		} catch (Exception e) {
-			if (callback != null) callback.error(e.getMessage());
+			if (callback != null) callback.error("Failed to start: " + e.getMessage());
 		}
     }
 
