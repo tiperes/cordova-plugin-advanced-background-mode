@@ -10,18 +10,13 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.PowerManager;
-import android.util.TypedValue;
 import android.view.View;
 import android.view.Window;
-import android.view.WindowManager;
-import android.view.WindowManager.LayoutParams;
 import android.view.inputmethod.InputMethodManager;
-import android.graphics.Typeface;
-import android.widget.LinearLayout;
-import android.widget.TextView;
 
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaPlugin;
@@ -43,6 +38,8 @@ import static android.view.WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCRE
 import static android.view.WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD;
 import static android.view.WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED;
 import static android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON;
+import static android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND;
+import static android.view.WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM;
 
 public class BackgroundModeExt extends CordovaPlugin {
 
@@ -287,6 +284,20 @@ public class BackgroundModeExt extends CordovaPlugin {
 
 	private void showAppStartDialog(Activity activity, Intent intent, JSONObject spec) {
 	    if (activity == null) return;
+
+		// ---- Compose title + message ----		
+		String title = "";
+		if (spec != null && spec.has("title")) {
+			title = spec.optString("title", "");
+		}
+		String message = "";
+		if (spec != null && spec.has("text")) {
+			message = spec.optString("text", "");
+		}
+		if (message.isEmpty()) {
+			message = "To ensure the app works properly in background, " +
+					  "please adjust the app start settings.";
+		}
 	
 	    activity.runOnUiThread(() -> {
 	        try {
@@ -294,83 +305,11 @@ public class BackgroundModeExt extends CordovaPlugin {
 	                activity,
 	                android.R.style.Theme_DeviceDefault_Dialog_Alert // Follows system theme
 	            );
-	
-	            // ---- Build custom content view for cross-device consistency ----
-	            LinearLayout content = new LinearLayout(activity);
-	            content.setOrientation(LinearLayout.VERTICAL);
-	            content.setPadding(48, 32, 48, 24); // bottom slightly larger
-	            content.setFocusable(true);
-	            content.setFocusableInTouchMode(true);
 
-				// ---- Ensure proper background for custom view ----
-	            TypedValue bgValue = new TypedValue();
-	            if (!activity.getTheme().resolveAttribute(android.R.attr.colorBackgroundFloating, bgValue, true)) {
-	                bgValue.data = 0xFFFFFFFF; // fallback white
-	            }
-	            content.setBackgroundColor(bgValue.data);
-
-				 // ---- Make layout fill width ----
-	            LinearLayout.LayoutParams contentParams = new LinearLayout.LayoutParams(
-	                LinearLayout.LayoutParams.MATCH_PARENT,
-	                LinearLayout.LayoutParams.WRAP_CONTENT
-	            );
-	            content.setLayoutParams(contentParams);
+				builder.setTitle(title);
+            	builder.setMessage(message);
 	
-	            // ---- Custom title (framework-safe, theme-aware) ----
-	            if (spec != null && spec.has("title")) {
-	                String title = spec.optString("title", "");
-	                if (!title.isEmpty()) {
-	                    TextView titleView = new TextView(activity);
-	                    titleView.setText(title);
-	                    titleView.setTextSize(20);
-	                    titleView.setTypeface(titleView.getTypeface(), Typeface.BOLD);
-	
-	                    // Resolve theme textColorPrimary
-	                    TypedValue tv = new TypedValue();
-	                    if (!activity.getTheme().resolveAttribute(
-	                        android.R.attr.textColorPrimary, tv, true
-	                    )) {
-	                        tv.data = 0xFF000000; // fallback black
-	                    }
-	                    titleView.setTextColor(tv.data);
-	
-	                    titleView.setPadding(0, 0, 0, 16);
-	                    content.addView(titleView);
-	                }
-	            }
-	
-	            // ---- Message ----
-	            TextView messageView = new TextView(activity);
-	            String message = "";
-	            if (spec != null && spec.has("text")) {
-	                message = spec.optString("text", "");
-	            }
-	            if (message.isEmpty()) {
-	                message = "To ensure the app works properly in background, " +
-	                          "please adjust the app start settings.";
-	            }
-	            messageView.setText(message);
-	
-	            // Resolve theme textColorSecondary
-	            TypedValue mv = new TypedValue();
-	            if (!activity.getTheme().resolveAttribute(
-	                android.R.attr.textColorSecondary, mv, true
-	            )) {
-	                mv.data = 0xFF666666; // fallback grey
-	            }
-	            messageView.setTextColor(mv.data);
-	            messageView.setTextSize(16);
-	
-	            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-	                LinearLayout.LayoutParams.MATCH_PARENT,
-	                LinearLayout.LayoutParams.WRAP_CONTENT
-	            );
-	            params.bottomMargin = 16;
-	            messageView.setLayoutParams(params);
-	            content.addView(messageView);
-	
-	            // ---- Builder content view & actions ----
-	            builder.setView(content);
+	            // ---- Buttons ----
 	            builder.setPositiveButton(android.R.string.ok, (o, d) -> {
 	                try {
 	                    launchAppStart(activity, intent);
@@ -380,9 +319,7 @@ public class BackgroundModeExt extends CordovaPlugin {
 	            });
 	            builder.setNegativeButton(android.R.string.cancel, (o, d) -> {
 	                sendAppStartResult("Canceled from dialog");
-	            });
-	
-	            builder.setCancelable(false); // disable back button dismiss
+	            });	
 	
 	            // ---- Clear focus & hide IME BEFORE dialog ----
 	            View focused = activity.getCurrentFocus();
@@ -395,7 +332,8 @@ public class BackgroundModeExt extends CordovaPlugin {
 	                }
 	            }
 	
-	            // ---- Create dialog ----
+	            // ---- Create & show dialog ----
+	            builder.setCancelable(false); // disable back button dismiss
 	            AlertDialog dialog = builder.create();
 	            dialog.setCanceledOnTouchOutside(false); // Prevent dismiss on outside touch
 	
@@ -405,8 +343,8 @@ public class BackgroundModeExt extends CordovaPlugin {
 	                if (dw != null) {
 	                    dw.setDimAmount(0.6f);
 	                    dw.addFlags(
-	                        android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND |
-	                        android.view.WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
+	                        FLAG_DIM_BEHIND |
+	                        FLAG_ALT_FOCUSABLE_IM
 	                    );
 	                }
 	
