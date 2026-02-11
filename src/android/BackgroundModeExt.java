@@ -13,8 +13,12 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.PowerManager;
+import android.util.TypedValue;
 import android.view.View;
 import android.view.Window;
+import android.view.inputmethod.InputMethodManager;
+import android.graphics.Typeface;
+import android.widget.TextView;
 
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaPlugin;
@@ -279,63 +283,104 @@ public class BackgroundModeExt extends CordovaPlugin {
     }
 
 	private void showAppStartDialog(Activity activity, Intent intent, JSONObject spec) {
-	    AlertDialog.Builder builder;	
-	    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-	        // Add Android 12+ Material dynamic color support
-	        builder = new AlertDialog.Builder(
-	            activity,
-	            android.R.style.Theme_DeviceDefault_Light_Dialog_Alert
-	        );
-	    } else {
-	        // Legacy fallback (Android 6–7)
-	        builder = new AlertDialog.Builder(activity);
-	    }
-	
-	    // Title
-	    if (spec != null && spec.has("title")) {
-	        String title = spec.optString("title", null);
-	        if (title != null && !title.isEmpty()) {
-	            builder.setTitle(title);
-	        }
-	    }
-	
-	    // Message
-	    if (spec != null && spec.has("text")) {
-	        builder.setMessage(spec.optString("text"));
-	    } else {
-	        builder.setMessage(
-	            "To ensure the app works properly in background, " +
-	            "please adjust the app start settings."
-	        );
-	    }
-	
-	    builder.setCancelable(true);
-	
-	    builder.setPositiveButton(android.R.string.ok, (d, w) -> {
-	        try {
-	            launchAppStart(activity, intent);
-	        } catch (Exception e) {
-	            sendAppStartResult("Failed to open from popup");
-	        }
-	    });
-	
-	    builder.setNegativeButton(android.R.string.cancel, (d, w) -> {
-	        sendAppStartResult("Canceled from popup");
-	    });
-	
-	    builder.setOnCancelListener(d -> {
-	        sendAppStartResult("Canceled from popup");
-	    });
+	    if (activity == null) return;
 	
 	    activity.runOnUiThread(() -> {
-	        AlertDialog dialog = builder.create();
+	        try {
+	            AlertDialog.Builder builder = new AlertDialog.Builder(
+	                activity,
+	                android.R.style.Theme_DeviceDefault_Dialog_Alert // follows system theme
+	            );
 	
-	        // Ensure modal dimmed backdrop (OEM-safe)
-	        if (dialog.getWindow() != null) {
-	            dialog.getWindow().setDimAmount(0.6f);
+	            // ---- Custom title (framework-safe, theme-aware) ----
+	            if (spec != null && spec.has("title")) {
+					String title = spec.optString("title", null);
+	                if (title != null && !title.isEmpty()) {
+						TextView titleView = new TextView(activity);
+						titleView.setText(title);
+						titleView.setPadding(48, 32, 48, 16);
+						titleView.setTextSize(20);
+						titleView.setTypeface(titleView.getTypeface(), Typeface.BOLD);
+	
+						// Resolve theme textColorPrimary
+						TypedValue tv = new TypedValue();
+						activity.getTheme().resolveAttribute(
+							android.R.attr.textColorPrimary, tv, true
+						);
+						titleView.setTextColor(tv.data);
+	
+						builder.setCustomTitle(titleView);
+					}
+	            }
+	
+	            // ---- Message ----
+	            if (spec != null && spec.has("text")) {
+	                builder.setMessage(spec.optString("text"));
+	            } else {
+	                builder.setMessage(
+	                    "To ensure the app works properly in background, " +
+	                    "please adjust the app start settings."
+	                );
+	            }
+	
+	            builder.setPositiveButton(android.R.string.ok, (o, d) -> {
+	                try {
+	                    launchAppStart(activity, intent);
+	                } catch (Exception e) {
+	                    sendAppStartResult("Failed to open from dialog");
+	                }
+	            });
+	
+	            builder.setNegativeButton(android.R.string.cancel, (o, d) -> {
+	                sendAppStartResult("Canceled from dialog");
+	            });
+	
+	            builder.setOnCancelListener(d -> {
+	                sendAppStartResult("Canceled from dialog");
+	            });
+	
+	            builder.setCancelable(true);
+				
+				// ---- Clear focus & hide IME BEFORE dialog ----
+	            View focused = activity.getCurrentFocus();
+	            if (focused != null) {
+	                focused.clearFocus();
+	                InputMethodManager imm =
+	                    (InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE);
+	                if (imm != null) {
+	                    imm.hideSoftInputFromWindow(focused.getWindowToken(), 0);
+	                }
+	            }
+	
+	            AlertDialog dialog = builder.create();
+	            dialog.setOnShowListener(d -> {
+	                // ---- Enforce modal behavior & IME isolation ----
+	                Window dw = dialog.getWindow();
+	                if (dw != null) {
+						dw.setDimAmount(0.6f);
+	                    dw.addFlags(
+	                        android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND |
+	                        android.view.WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
+	                    );
+	                }
+	
+	                // ---- Final IME suppression ----
+	                View dfocused = activity.getCurrentFocus();
+	                if (dfocused != null) {
+						dfocused.clearFocus();
+	                    InputMethodManager dimm =
+	                    (InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE);
+	                    if (dimm != null) {
+	                        dimm.hideSoftInputFromWindow(dfocused.getWindowToken(), 0);
+	                    }
+	                }
+	            });
+	
+	            dialog.show();
+	
+	        } catch (Exception e) {
+	            sendAppStartResult("Failed to show dialog");
 	        }
-	
-	        dialog.show();
 	    });
 	}
 
