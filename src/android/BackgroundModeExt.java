@@ -14,6 +14,10 @@ import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.PowerManager;
+import android.text.Spannable;
+import android.text.SpannableString;
+import android.text.style.RelativeSizeSpan;
+import android.text.style.StyleSpan;
 import android.view.View;
 import android.view.Window;
 import android.view.inputmethod.InputMethodManager;
@@ -305,9 +309,27 @@ public class BackgroundModeExt extends CordovaPlugin {
 					message = "To ensure the app works properly in background, " +
 							  "please adjust the app start settings.";
 				}
-				
-				builder.setTitle(title);
-            	builder.setMessage(message);
+
+				// DO NOT call setTitle()
+				// DO NOT call setView()
+				SpannableString msg = new SpannableString(
+				        (!title.isEmpty() ? title + "\n\n" : "") + message
+				);
+				if (!title.isEmpty()) {
+				    msg.setSpan(
+				            new StyleSpan(Typeface.BOLD),
+				            0,
+				            title.length(),
+				            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+				    );
+				    msg.setSpan(
+				            new RelativeSizeSpan(1.15f),
+				            0,
+				            title.length(),
+				            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+				    );
+				}				
+				builder.setMessage(msg);
 	
 	            // ---- Buttons ----
 	            builder.setPositiveButton(android.R.string.ok, (o, d) -> {
