@@ -289,40 +289,71 @@ public class BackgroundModeExt extends CordovaPlugin {
 	        try {
 	            AlertDialog.Builder builder = new AlertDialog.Builder(
 	                activity,
-	                android.R.style.Theme_DeviceDefault_Dialog_Alert // follows system theme
+	                android.R.style.Theme_DeviceDefault_Dialog_Alert // Follows system theme
 	            );
+	
+	            // ---- Build custom content view for cross-device consistency ----
+	            LinearLayout content = new LinearLayout(activity);
+	            content.setOrientation(LinearLayout.VERTICAL);
+	            content.setPadding(48, 32, 48, 24); // bottom slightly larger
+	            content.setFocusable(true);
+	            content.setFocusableInTouchMode(true);
 	
 	            // ---- Custom title (framework-safe, theme-aware) ----
 	            if (spec != null && spec.has("title")) {
-					String title = spec.optString("title", null);
-	                if (title != null && !title.isEmpty()) {
-						TextView titleView = new TextView(activity);
-						titleView.setText(title);
-						titleView.setPadding(48, 32, 48, 16);
-						titleView.setTextSize(20);
-						titleView.setTypeface(titleView.getTypeface(), Typeface.BOLD);
+	                String title = spec.optString("title", "");
+	                if (!title.isEmpty()) {
+	                    TextView titleView = new TextView(activity);
+	                    titleView.setText(title);
+	                    titleView.setTextSize(20);
+	                    titleView.setTypeface(titleView.getTypeface(), Typeface.BOLD);
 	
-						// Resolve theme textColorPrimary
-						TypedValue tv = new TypedValue();
-						activity.getTheme().resolveAttribute(
-							android.R.attr.textColorPrimary, tv, true
-						);
-						titleView.setTextColor(tv.data);
+	                    // Resolve theme textColorPrimary
+	                    TypedValue tv = new TypedValue();
+	                    if (!activity.getTheme().resolveAttribute(
+	                        android.R.attr.textColorPrimary, tv, true
+	                    )) {
+	                        tv.data = 0xFF000000; // fallback black
+	                    }
+	                    titleView.setTextColor(tv.data);
 	
-						builder.setCustomTitle(titleView);
-					}
+	                    titleView.setPadding(0, 0, 0, 16);
+	                    content.addView(titleView);
+	                }
 	            }
 	
 	            // ---- Message ----
+	            TextView messageView = new TextView(activity);
+	            String message = "";
 	            if (spec != null && spec.has("text")) {
-	                builder.setMessage(spec.optString("text"));
-	            } else {
-	                builder.setMessage(
-	                    "To ensure the app works properly in background, " +
-	                    "please adjust the app start settings."
-	                );
+	                message = spec.optString("text", "");
 	            }
+	            if (message.isEmpty()) {
+	                message = "To ensure the app works properly in background, " +
+	                          "please adjust the app start settings.";
+	            }
+	            messageView.setText(message);
 	
+	            // Resolve theme textColorSecondary
+	            TypedValue mv = new TypedValue();
+	            if (!activity.getTheme().resolveAttribute(
+	                android.R.attr.textColorSecondary, mv, true
+	            )) {
+	                mv.data = 0xFF666666; // fallback grey
+	            }
+	            messageView.setTextColor(mv.data);
+	            messageView.setTextSize(16);
+	
+	            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+	                LinearLayout.LayoutParams.MATCH_PARENT,
+	                LinearLayout.LayoutParams.WRAP_CONTENT
+	            );
+	            params.bottomMargin = 16;
+	            messageView.setLayoutParams(params);
+	            content.addView(messageView);
+	
+	            // ---- Builder content view & actions ----
+	            builder.setView(content);
 	            builder.setPositiveButton(android.R.string.ok, (o, d) -> {
 	                try {
 	                    launchAppStart(activity, intent);
@@ -330,18 +361,13 @@ public class BackgroundModeExt extends CordovaPlugin {
 	                    sendAppStartResult("Failed to open from dialog");
 	                }
 	            });
-	
 	            builder.setNegativeButton(android.R.string.cancel, (o, d) -> {
 	                sendAppStartResult("Canceled from dialog");
 	            });
 	
-	            builder.setOnCancelListener(d -> {
-	                sendAppStartResult("Canceled from dialog");
-	            });
+	            builder.setCancelable(false);
 	
-	            builder.setCancelable(true);
-				
-				// ---- Clear focus & hide IME BEFORE dialog ----
+	            // ---- Clear focus & hide IME BEFORE dialog ----
 	            View focused = activity.getCurrentFocus();
 	            if (focused != null) {
 	                focused.clearFocus();
@@ -352,12 +378,15 @@ public class BackgroundModeExt extends CordovaPlugin {
 	                }
 	            }
 	
+	            // ---- Create dialog ----
 	            AlertDialog dialog = builder.create();
+	            dialog.setCanceledOnTouchOutside(false); // Prevent dismiss on outside touch
+	
 	            dialog.setOnShowListener(d -> {
 	                // ---- Enforce modal behavior & IME isolation ----
 	                Window dw = dialog.getWindow();
 	                if (dw != null) {
-						dw.setDimAmount(0.6f);
+	                    dw.setDimAmount(0.6f);
 	                    dw.addFlags(
 	                        android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND |
 	                        android.view.WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
@@ -367,9 +396,9 @@ public class BackgroundModeExt extends CordovaPlugin {
 	                // ---- Final IME suppression ----
 	                View dfocused = activity.getCurrentFocus();
 	                if (dfocused != null) {
-						dfocused.clearFocus();
+	                    dfocused.clearFocus();
 	                    InputMethodManager dimm =
-	                    (InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE);
+	                        (InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE);
 	                    if (dimm != null) {
 	                        dimm.hideSoftInputFromWindow(dfocused.getWindowToken(), 0);
 	                    }
