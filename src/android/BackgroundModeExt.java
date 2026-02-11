@@ -284,20 +284,6 @@ public class BackgroundModeExt extends CordovaPlugin {
 
 	private void showAppStartDialog(Activity activity, Intent intent, JSONObject spec) {
 	    if (activity == null) return;
-
-		// ---- Compose title + message ----		
-		String title = "";
-		if (spec != null && spec.has("title")) {
-			title = spec.optString("title", "");
-		}
-		String message = "";
-		if (spec != null && spec.has("text")) {
-			message = spec.optString("text", "");
-		}
-		if (message.isEmpty()) {
-			message = "To ensure the app works properly in background, " +
-					  "please adjust the app start settings.";
-		}
 	
 	    activity.runOnUiThread(() -> {
 	        try {
@@ -306,6 +292,20 @@ public class BackgroundModeExt extends CordovaPlugin {
 	                android.R.style.Theme_DeviceDefault_Dialog_Alert // Follows system theme
 	            );
 
+				// ---- Compose title + message ----		
+				String title = "";
+				if (spec != null && spec.has("title")) {
+					title = spec.optString("title", "");
+				}
+				String message = "";
+				if (spec != null && spec.has("text")) {
+					message = spec.optString("text", "");
+				}
+				if (message.isEmpty()) {
+					message = "To ensure the app works properly in background, " +
+							  "please adjust the app start settings.";
+				}
+				
 				builder.setTitle(title);
             	builder.setMessage(message);
 	
