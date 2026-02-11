@@ -16,8 +16,11 @@ import android.os.PowerManager;
 import android.util.TypedValue;
 import android.view.View;
 import android.view.Window;
+import android.view.WindowManager;
+import android.view.WindowManager.LayoutParams;
 import android.view.inputmethod.InputMethodManager;
 import android.graphics.Typeface;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import org.apache.cordova.CallbackContext;
