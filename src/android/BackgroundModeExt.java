@@ -301,6 +301,20 @@ public class BackgroundModeExt extends CordovaPlugin {
 	            content.setPadding(48, 32, 48, 24); // bottom slightly larger
 	            content.setFocusable(true);
 	            content.setFocusableInTouchMode(true);
+
+				// ---- Ensure proper background for custom view ----
+	            TypedValue bgValue = new TypedValue();
+	            if (!activity.getTheme().resolveAttribute(android.R.attr.colorBackgroundFloating, bgValue, true)) {
+	                bgValue.data = 0xFFFFFFFF; // fallback white
+	            }
+	            content.setBackgroundColor(bgValue.data);
+
+				 // ---- Make layout fill width ----
+	            LinearLayout.LayoutParams contentParams = new LinearLayout.LayoutParams(
+	                LinearLayout.LayoutParams.MATCH_PARENT,
+	                LinearLayout.LayoutParams.WRAP_CONTENT
+	            );
+	            content.setLayoutParams(contentParams);
 	
 	            // ---- Custom title (framework-safe, theme-aware) ----
 	            if (spec != null && spec.has("title")) {
@@ -368,7 +382,7 @@ public class BackgroundModeExt extends CordovaPlugin {
 	                sendAppStartResult("Canceled from dialog");
 	            });
 	
-	            builder.setCancelable(false);
+	            builder.setCancelable(false); // disable back button dismiss
 	
 	            // ---- Clear focus & hide IME BEFORE dialog ----
 	            View focused = activity.getCurrentFocus();
