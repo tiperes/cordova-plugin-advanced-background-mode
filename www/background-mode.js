@@ -34,8 +34,6 @@ var exec    = require('cordova/exec'),
  */
 exports._pluginInitialize = function()
 {
-	if (this._isInitialized) return;
-	
 	this._isAndroid = device.platform.match(/^android|amazon/i) !== null;	
 	this._isActive = false;
 	
@@ -59,7 +57,6 @@ exports._pluginInitialize = function()
 			exports._settings = {};
 		});
 	}
-	this._isInitialized = true;
 };
 
 /**
@@ -501,8 +498,7 @@ channel.onCordovaReady.subscribe(function()
 // Called after 'deviceready' event
 channel.deviceready.subscribe(function()
 {
-	exports._pluginInitialize();
-	if (this._isAndroid) {
+	if (exports._isAndroid) {
         var isEnabled = function(isActive) {
 			if (isActive) {
 				exports.fireEvent('activate');
