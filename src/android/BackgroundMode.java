@@ -67,7 +67,7 @@ public class BackgroundMode extends CordovaPlugin {
                 callback.success();
                 break;
             case "isEnabled":
-                callback.success(isForegroundStarted == true);
+                callback.success(isForegroundStarted ? 1 : 0);
                 break;
             case "enable":
                 enableMode(callback);
