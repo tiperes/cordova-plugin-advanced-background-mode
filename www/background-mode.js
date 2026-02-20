@@ -500,7 +500,9 @@ channel.deviceready.subscribe(function()
 {
 	if (this._isAndroid) {
         var isEnabled = function(isActive) {
-			exports.fireEvent(isActive ? 'activate' : 'deactivate');
+			if (isActive) {
+				exports.fireEvent('activate');
+			}
 		};
 		cordova.exec(isEnabled, null, 'BackgroundMode', 'isEnabled', []);
     }
