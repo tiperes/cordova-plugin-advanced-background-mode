@@ -498,7 +498,13 @@ channel.onCordovaReady.subscribe(function()
 // Called after 'deviceready' event
 channel.deviceready.subscribe(function()
 {
-    if (exports._isActive) {
+	if (this._isAndroid) {
+        var isEnabled = function(isActive) {
+			exports.fireEvent(isActive ? 'activate' : 'deactivate');
+		};
+		cordova.exec(isEnabled, null, 'BackgroundMode', 'isEnabled', []);
+    }
+    else if (exports._isActive) {
         exports.fireEvent('activate');
     }
 });
