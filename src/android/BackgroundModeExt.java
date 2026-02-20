@@ -52,6 +52,8 @@ public class BackgroundModeExt extends CordovaPlugin {
 	private CallbackContext appStartCallback;
 	private boolean appStartLaunched = false;
 
+	private volatile boolean keepAliveRequested = false;
+
     @Override
     public boolean execute(String action, JSONArray args, CallbackContext callback) {
         boolean validAction = true;
@@ -159,49 +161,54 @@ public class BackgroundModeExt extends CordovaPlugin {
         }
     }
 
-    private void disableWebViewOptimizations() {
-        Activity activity = cordova.getActivity();
-        if (activity == null) return;
-    
-        int maxRetries = 20;      // total attempts
-        long retryDelay = 200;    // ms between attempts
-    
-        new Thread(() -> {
-            int attempts = 0;    
-            while (attempts < maxRetries) {
-                if (webView != null) break;
-    
-                attempts++;
-                try { Thread.sleep(retryDelay); } catch (InterruptedException ignored) {}
-            }
-    
-            // WebView still not available
-            if (webView == null) return;
-    
-            activity.runOnUiThread(() -> {
-                View view;
-                try {
-                    view = webView.getEngine().getView();
-                } catch (Exception e) { return; }
-    
-                if (view == null) return;
-    
-                view.post(() -> {
-                    if (!view.isAttachedToWindow()) return;
-    
-                    try {
-                        // Crosswalk-specific hook
-                        Class.forName("org.crosswalk.engine.XWalkCordovaView")
-                            .getMethod("onShow")
-                            .invoke(view);
-                    } catch (Exception ignore) {
-                        // fallback for normal WebView
-                        view.dispatchWindowVisibilityChanged(View.VISIBLE);
-                    }
-                });
-            });
-        }).start();
+	private void disableWebViewOptimizations() {
+        keepAliveRequested = true;
+    	requestKeepAlive();
     }
+	
+	@Override
+	public void onPause(boolean multitasking) {
+	    super.onPause(multitasking);
+	
+	    if (!keepAliveRequested) return;
+		requestKeepAlive();
+	}
+
+    private void requestKeepAlive() {
+	    Activity activity = cordova.getActivity();
+	    if (activity == null) return;
+	
+	    activity.runOnUiThread(() -> {
+	        View view = webView != null ? webView.getEngine().getView() : null;
+	        if (view != null) {
+	            // Attempt to force visibility immediately with retries
+	            forceVisibility(view, 20, 200);
+	        }
+	    });
+    }
+	
+	/**
+	 * Recursively attempts to force the WebView visible, bounded by retries
+	 */
+	private void forceVisibility(View view, int retries, long delayMillis) {
+	    if (view.isAttachedToWindow()) {
+	        try {
+	            // Crosswalk-specific hook
+	            Class.forName("org.crosswalk.engine.XWalkCordovaView")
+	                    .getMethod("onShow")
+	                    .invoke(view);
+	        } catch (Exception ignore) {
+	            // System WebView fallback
+	            view.dispatchWindowVisibilityChanged(View.VISIBLE);
+	        }
+	        return;
+	    }
+	
+	    if (retries <= 0) return;
+	
+	    // Retry after a short delay
+	    view.postDelayed(() -> forceVisibility(view, retries - 1, delayMillis), delayMillis);
+	}
 
     @SuppressLint("BatteryLife")
     private void disableBatteryOptimizations() {
