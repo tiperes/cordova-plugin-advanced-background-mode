@@ -170,19 +170,33 @@ public class BackgroundModeExt extends CordovaPlugin {
 	public void onPause(boolean multitasking) {
 	    super.onPause(multitasking);
 	
-	    if (!keepAliveRequested) return;
-		requestKeepAlive();
+	    if (keepAliveRequested) {
+	        ensureKeepAlive(); // called every background transition
+	    }
 	}
 
-    private void requestKeepAlive() {
+    private void ensureKeepAlive() {
 	    Activity activity = cordova.getActivity();
 	    if (activity == null) return;
 	
-	    activity.runOnUiThread(() -> {
-	        View view = webView != null ? webView.getEngine().getView() : null;
-	        if (view != null) {
-	            // Attempt to force visibility immediately with retries
-	            forceVisibility(view, 20, 200);
+	    View decorView = activity.getWindow().getDecorView();
+	    // Post to UI thread on decorView
+	    decorView.post(new Runnable() {
+	        @Override
+	        public void run() {
+	            View webViewView = null;
+	            try {
+	                webViewView = webView != null ? webView.getEngine().getView() : null;
+	            } catch (Exception ignored) {
+	                // webView not fully initialized yet
+	            }
+	
+	            if (webViewView != null) {
+	                forceVisibility(webViewView, 20, 200);
+	            } else if (keepAliveRequested) {
+	                // WebView not ready yet, retry after short delay
+	                decorView.postDelayed(this, 100);
+	            }
 	        }
 	    });
     }
@@ -190,7 +204,7 @@ public class BackgroundModeExt extends CordovaPlugin {
 	/**
 	 * Recursively attempts to force the WebView visible, bounded by retries
 	 */
-	private void forceVisibility(View view, int retries, long delayMillis) {
+	private void forceVisibility(View view, int retries, long delayMs) {
 	    if (view.isAttachedToWindow()) {
 	        try {
 	            // Crosswalk-specific hook
@@ -207,7 +221,7 @@ public class BackgroundModeExt extends CordovaPlugin {
 	    if (retries <= 0) return;
 	
 	    // Retry after a short delay
-	    view.postDelayed(() -> forceVisibility(view, retries - 1, delayMillis), delayMillis);
+	    view.postDelayed(() -> forceVisibility(view, retries - 1, delayMs), delayMs);
 	}
 
     @SuppressLint("BatteryLife")
