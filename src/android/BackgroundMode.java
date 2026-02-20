@@ -26,7 +26,7 @@ public class BackgroundMode extends CordovaPlugin {
     private static final int NOTIFICATION_PERMISSION_REQUEST_CODE = 1001;
 
     // Default settings for the notification
-    private static JSONObject defaultSettings = new JSONObject();
+    private volatile static JSONObject defaultSettings = new JSONObject();
     
     /**
      * Returns the settings for the new/updated notification.
@@ -38,14 +38,16 @@ public class BackgroundMode extends CordovaPlugin {
     private CallbackContext permissionCallback;
 
     // Flag indicates if the foreground services has been started
-    private boolean isForegroundStarted = false;
+    private volatile boolean isForegroundStarted = false;
     
 	// Flag indicates if the app is in background or foreground
-    private boolean inBackground = false;
+    private volatile boolean inBackground = false;
     
     @Override
     public void onDestroy()
     {
+		super.onDestroy();
+		
         stopForeground(null);
         // Older then Android 8
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
@@ -185,6 +187,8 @@ public class BackgroundMode extends CordovaPlugin {
     @Override
     public void onStop ()
 	{
+		super.onStop();
+		
         BackgroundModeExt.clearKeyguardFlags(cordova.getActivity());
     }
 
@@ -194,6 +198,8 @@ public class BackgroundMode extends CordovaPlugin {
     @Override
     public void onPause(boolean multitasking)
     {
+		super.onPause(multitasking);
+		
 		inBackground = true;
 		BackgroundModeExt.clearKeyguardFlags(cordova.getActivity());
     }
@@ -204,6 +210,8 @@ public class BackgroundMode extends CordovaPlugin {
     @Override
     public void onResume (boolean multitasking)
     {
+		super.onResume(multitasking);
+		
 		inBackground = false;
     }
 
