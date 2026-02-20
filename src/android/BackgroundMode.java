@@ -66,6 +66,9 @@ public class BackgroundMode extends CordovaPlugin {
                 configure(args.optJSONObject(0), args.optBoolean(1));
                 callback.success();
                 break;
+            case "isEnabled":
+                callback.success(isForegroundStarted);
+                break;
             case "enable":
                 enableMode(callback);
                 break;
@@ -246,20 +249,20 @@ public class BackgroundMode extends CordovaPlugin {
      */
     private void startForeground(CallbackContext callback)
     {
-		if (isForegroundStarted) return;
-
         try {
-			Activity context = cordova.getActivity();
-			Intent intent    = new Intent(context, ForegroundService.class);			
-			// Android 14+
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent);
-             // Older Androids
-            } else {
-                context.startService(intent);
-            }
-            
-            isForegroundStarted = true;            
+			if (!isForegroundStarted) {
+				Activity context = cordova.getActivity();
+				Intent intent    = new Intent(context, ForegroundService.class);			
+				// Android 14+
+	            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+	                context.startForegroundService(intent);
+	             // Older Androids
+	            } else {
+	                context.startService(intent);
+	            }
+	            
+	            isForegroundStarted = true;
+			}
             if (callback != null) callback.success();
 		} catch (Exception e) {
 			if (callback != null) callback.error("Failed to start: " + e.getMessage());
@@ -271,17 +274,16 @@ public class BackgroundMode extends CordovaPlugin {
      */
     private void stopForeground(CallbackContext callback)
     {
-		if (!isForegroundStarted) return;
-
-		try {
-			Activity context = cordova.getActivity();
-	        Intent intent    = new Intent(context, ForegroundService.class);
-	        context.stopService(intent);
-		} catch (Exception ignored) {
-			// It should not happen, but if it fails it's because it has stopped
+		if (isForegroundStarted) {
+			try {
+				Activity context = cordova.getActivity();
+		        Intent intent    = new Intent(context, ForegroundService.class);
+		        context.stopService(intent);
+			} catch (Exception ignored) {
+				// It should not happen, but if it fails it's because it has stopped
+			}			
+	        isForegroundStarted = false;
 		}
-		
-        isForegroundStarted = false;
 		if (callback != null) callback.success();
     }
 }
