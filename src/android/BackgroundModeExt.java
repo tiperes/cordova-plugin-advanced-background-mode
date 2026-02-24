@@ -52,7 +52,11 @@ public class BackgroundModeExt extends CordovaPlugin {
 	private CallbackContext appStartCallback;
 	private boolean appStartLaunched = false;
 
+	// Flag to know if disableWebViewOptimizations has been called
 	private volatile boolean keepAliveRequested = false;
+
+	// Flag to know if we are backgrounded
+	private volatile boolean isBackgrounded = false;
 
     @Override
     public boolean execute(String action, JSONArray args, CallbackContext callback) {
@@ -113,6 +117,58 @@ public class BackgroundModeExt extends CordovaPlugin {
 
         return validAction;
     }
+	
+	/**
+     * Called when the activity is no longer visible to the user.
+     */
+	@Override
+	public void onStop() {
+	    super.onStop();
+
+		isBackgrounded = true;
+		
+	    Activity activity = cordova.getActivity();
+	    if (activity == null) return;
+	
+	    // Your previous onStop logic here
+	    clearKeyguardFlags(activity);
+	
+	    // Start keepAliveRunnable only if requested
+	    if (keepAliveRequested) {
+	        activity.getWindow().getDecorView().post(keepAliveRunnable);
+	    }
+	}
+
+    /**
+     * Called when the system is about to start resuming a previous activity.
+     */
+    @Override
+    public void onPause(boolean multitasking)
+    {
+		super.onPause(multitasking);
+		
+		Activity activity = cordova.getActivity();
+	    if (activity == null) return;
+	
+	    // Your previous onStop logic here
+	    clearKeyguardFlags(activity);
+    }
+	
+	/**
+     * Called when the system is visible to the user.
+     */
+	@Override
+	public void onStart() {
+	    super.onStart();
+
+		isBackgrounded = false;
+	
+	    Activity activity = cordova.getActivity();
+	    if (activity == null) return;
+	
+	    // Stop keepAlive when returning to foreground
+	    activity.getWindow().getDecorView().removeCallbacks(keepAliveRunnable);
+	}
 
     private void moveToBackground() {
         moveToBackground(cordova.getActivity());
@@ -128,7 +184,7 @@ public class BackgroundModeExt extends CordovaPlugin {
     }
 
     private void moveToForeground() {
-        Activity activity = cordova.getActivity();
+		Activity activity = cordova.getActivity();
         if (activity == null) return;
         
         moveToForeground(activity.getApplicationContext(), activity);
@@ -162,50 +218,39 @@ public class BackgroundModeExt extends CordovaPlugin {
     }
 
 	private void disableWebViewOptimizations() {
-        keepAliveRequested = true;
-    	ensureKeepAlive();
+		keepAliveRequested = true;
     }
-	
-	@Override
-	public void onPause(boolean multitasking) {
-	    super.onPause(multitasking);
-	
-	    if (keepAliveRequested) {
-	        ensureKeepAlive(); // called every background transition
-	    }
-	}
 
-    private void ensureKeepAlive() {
-	    Activity activity = cordova.getActivity();
-	    if (activity == null) return;
+    private final Runnable keepAliveRunnable = new Runnable() {
+	    @Override
+	    public void run() {
+	        if (!keepAliveRequested || !isBackgrounded) return;
 	
-	    View decorView = activity.getWindow().getDecorView();
-	    // Post to UI thread on decorView
-	    decorView.post(new Runnable() {
-	        @Override
-	        public void run() {
-	            View webViewView = null;
-	            try {
-	                webViewView = webView != null ? webView.getEngine().getView() : null;
-	            } catch (Exception ignored) {
-	                // webView not fully initialized yet
-	            }
+	        Activity activity = cordova.getActivity();
+	        if (activity == null) return;
 	
-	            if (webViewView != null) {
-	                forceVisibility(webViewView, 20, 200);
-	            } else if (keepAliveRequested) {
-	                // WebView not ready yet, retry after short delay
-	                decorView.postDelayed(this, 100);
-	            }
+	        View webViewView = null;
+	        try {
+	            webViewView = webView != null ? webView.getEngine().getView() : null;
+	        } catch (Exception ignored) { }
+	
+	        if (webViewView != null) {
+				// Force visibility to keep JS timers and sensors alive
+	            forceVisibility(webViewView, 5, 200); // 5 retries, 200ms interval
 	        }
-	    });
-    }
+	
+	        // Schedule next wake cycle conservatively
+	        activity.getWindow().getDecorView().postDelayed(this, 5000); // 5s interval
+	    }
+	};
 	
 	/**
 	 * Recursively attempts to force the WebView visible, bounded by retries
 	 */
 	private void forceVisibility(View view, int retries, long delayMs) {
-	    if (view.isAttachedToWindow()) {
+    	if (view == null) return;
+	    // Wait until Android marks it non-visible
+	    if (view.isAttachedToWindow() && view.getWindowVisibility() != View.VISIBLE) {
 	        try {
 	            // Crosswalk-specific hook
 	            Class.forName("org.crosswalk.engine.XWalkCordovaView")
@@ -218,8 +263,7 @@ public class BackgroundModeExt extends CordovaPlugin {
 	        return;
 	    }
 	
-	    if (retries <= 0) return;
-	
+	    if (retries <= 0) return;	
 	    // Retry after a short delay
 	    view.postDelayed(() -> forceVisibility(view, retries - 1, delayMs), delayMs);
 	}
