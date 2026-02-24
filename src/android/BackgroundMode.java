@@ -39,10 +39,7 @@ public class BackgroundMode extends CordovaPlugin {
 
     // Flag indicates if the foreground services has been started
     private volatile boolean isForegroundStarted = false;
-    
-	// Flag indicates if the app is in background or foreground
-    private volatile boolean inBackground = false;
-    
+
     @Override
     public void onDestroy()
     {
@@ -181,57 +178,31 @@ public class BackgroundMode extends CordovaPlugin {
 		stopForeground(callback);
     }
 
-    /**
-     * Called when the activity is no longer visible to the user.
-     */
-    @Override
-    public void onStop ()
-	{
-		super.onStop();
-		
-        BackgroundModeExt.clearKeyguardFlags(cordova.getActivity());
-    }
-
-    /**
-     * Called when the system is about to start resuming a previous activity.
-     */
-    @Override
-    public void onPause(boolean multitasking)
-    {
-		super.onPause(multitasking);
-		
-		inBackground = true;
-		BackgroundModeExt.clearKeyguardFlags(cordova.getActivity());
-    }
-
-    /**
-     * Called when the activity will start interacting with the user.
-     */
-    @Override
-    public void onResume (boolean multitasking)
-    {
-		super.onResume(multitasking);
-		
-		inBackground = false;
-    }
-
 	/**
      * Move the application to foreground
      */
     private void moveToForeground()
     {
-		if (!inBackground) return;
-		
-        if (!isForegroundStarted) {
-			// Fallback if no Foreground Service
-			BackgroundModeExt.moveToForeground(cordova.getActivity());
-			return;
-		}
-
 		Activity context = cordova.getActivity();
-		Intent intent    = new Intent(context, ForegroundService.class);
-		intent.setAction(ForegroundService.ACTION_FOREGROUND);
-		context.startService(intent);
+		// Skip if activity already has focus
+		if (context.hasWindowFocus()) return;
+
+		// Check if activity is partially visible (multi-window)
+	    boolean isVisible = context.getWindow() != null &&
+	                        context.getWindow().getDecorView().getVisibility() == View.VISIBLE;
+	    if (isVisible) {
+	        return; // Activity is partially visible, so no need to move to foreground
+	    }
+		
+        if (isForegroundStarted) {			
+			Intent intent = new Intent(context, ForegroundService.class);
+			intent.setAction(ForegroundService.ACTION_FOREGROUND);
+			context.startService(intent);
+		}
+		// Fallback if no Foreground Service
+		else {
+			BackgroundModeExt.moveToForeground(context);
+		}
     }
 
     /**
