@@ -183,17 +183,7 @@ public class BackgroundMode extends CordovaPlugin {
      */
     private void moveToForeground()
     {
-		Activity context = cordova.getActivity();
-		// Skip if activity already has focus
-		if (context.hasWindowFocus()) return;
-
-		// Check if activity is partially visible (multi-window)
-	    boolean isVisible = context.getWindow() != null &&
-	                        context.getWindow().getDecorView().getVisibility() == View.VISIBLE;
-	    if (isVisible) {
-	        return; // Activity is partially visible, so no need to move to foreground
-	    }
-		
+		Activity context = cordova.getActivity();		
         if (isForegroundStarted) {			
 			Intent intent = new Intent(context, ForegroundService.class);
 			intent.setAction(ForegroundService.ACTION_FOREGROUND);
