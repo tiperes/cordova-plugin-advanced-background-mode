@@ -163,7 +163,7 @@ public class BackgroundModeExt extends CordovaPlugin {
 
 	private void disableWebViewOptimizations() {
         keepAliveRequested = true;
-    	requestKeepAlive();
+    	ensureKeepAlive();
     }
 	
 	@Override
